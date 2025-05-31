@@ -5,6 +5,7 @@ import os
 import traceback
 import threading # Para ejecutar tareas largas sin congelar la GUI
 import queue     # Para comunicar resultados de los hilos a la GUI
+from tkinter import colorchooser # Para el selector de color nativo
 
 # Importar tus módulos personalizados
 import reddit_scraper
@@ -21,20 +22,29 @@ class App(customtkinter.CTk):
         super().__init__()
 
         self.title("AI Reddit Story Video Creator")
-        self.geometry("850x1000") 
+        self.geometry("850x1020") 
 
+        # --- Definición inicial de variables de instancia ---
         self.generated_audio_path = None
         self.background_video_path = None
         self.narrated_video_path = None 
         self.generated_srt_path = None  
         self.can_generate_audio = False
 
+        # Colores para subtítulos (con valores por defecto para MoviePy y vistas previas)
+        self.subtitle_font_color_hex = "#FFFF00"     # Amarillo (opaco) para MoviePy y Vista Previa
+        self.subtitle_stroke_color_hex = "#000000"   # Negro (opaco) para MoviePy y Vista Previa
+        
+        # Para bg_color, el valor que irá a MoviePy se tomará del OptionMenu.
+        # Para la vista previa del color picker de bg (si se usara), necesitaríamos otro atributo.
+        # Pero como bg_color ahora es un OptionMenu, no necesitamos un atributo hex separado para su vista previa.
+
         self.task_queue = queue.Queue()
         self.after(100, self.check_queue_for_updates) 
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0); self.grid_rowconfigure(1, weight=0) 
-        self.grid_rowconfigure(2, weight=0); self.grid_rowconfigure(3, weight=1) # story_frame
+        self.grid_rowconfigure(2, weight=0); self.grid_rowconfigure(3, weight=1) 
         self.grid_rowconfigure(4, weight=0); self.grid_rowconfigure(5, weight=0)
         self.grid_rowconfigure(6, weight=0); self.grid_rowconfigure(7, weight=0) 
 
@@ -45,7 +55,7 @@ class App(customtkinter.CTk):
         customtkinter.CTkLabel(self.input_frame, text="URL de Reddit:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
         self.reddit_url_entry = customtkinter.CTkEntry(self.input_frame, placeholder_text="Pega aquí la URL de un post de Reddit...")
         self.reddit_url_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        self.reddit_fetch_button = customtkinter.CTkButton(self.input_frame, text="Obtener Historia", command=self.fetch_reddit_post_threaded) # Threaded
+        self.reddit_fetch_button = customtkinter.CTkButton(self.input_frame, text="Obtener Historia", command=self.fetch_reddit_post_threaded)
         self.reddit_fetch_button.grid(row=0, column=2, padx=10, pady=10)
 
         # --- Sección 2: Generación de Historia con IA ---
@@ -87,7 +97,7 @@ class App(customtkinter.CTk):
         self.tts_voice_menu.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         if not self.can_generate_audio: self.tts_voice_menu.configure(state="disabled")
         self.generate_audio_button = customtkinter.CTkButton(
-            self.tts_config_frame, text="Generar Audio de Historia", command=self.process_text_to_speech_threaded) # Threaded
+            self.tts_config_frame, text="Generar Audio de Historia", command=self.process_text_to_speech_threaded)
         self.generate_audio_button.grid(row=0, column=2, padx=10, pady=10)
         if not self.can_generate_audio: self.generate_audio_button.configure(state="disabled")
 
@@ -109,7 +119,7 @@ class App(customtkinter.CTk):
         self.selected_video_label = customtkinter.CTkLabel(self.video_processing_frame, text="Video no seleccionado")
         self.selected_video_label.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         self.generate_final_video_button = customtkinter.CTkButton(
-            self.video_processing_frame, text="Generar Video Narrado", command=self.process_final_video_generation_threaded) # Threaded
+            self.video_processing_frame, text="Generar Video Narrado", command=self.process_final_video_generation_threaded)
         self.generate_final_video_button.grid(row=0, column=2, padx=10, pady=10, sticky="e")
 
         # --- Sección 6: Configuración de SRT ---
@@ -123,7 +133,7 @@ class App(customtkinter.CTk):
             self.srt_config_frame, values=self.srt_max_words_options, variable=self.srt_max_words_var)
         self.srt_max_words_menu.grid(row=0, column=1, padx=10, pady=5, sticky="w")
         self.generate_srt_button = customtkinter.CTkButton(
-            self.srt_config_frame, text="1. Generar Archivo .SRT", command=self.process_srt_generation_threaded) # Threaded
+            self.srt_config_frame, text="1. Generar Archivo .SRT", command=self.process_srt_generation_threaded)
         self.generate_srt_button.grid(row=0, column=2, padx=10, pady=5, sticky="e")
 
         # --- Sección 7: Estilo de Subtítulos y Grabado en Video ---
@@ -132,36 +142,53 @@ class App(customtkinter.CTk):
         self.subtitle_style_frame.grid_columnconfigure(1, weight=1); self.subtitle_style_frame.grid_columnconfigure(3, weight=1)
         
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Fuente Sub:").grid(row=0, column=0, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_font_options = ["Arial", "Verdana", "Times New Roman", "Impact", "Courier New"]
+        self.subtitle_font_options = ["Arial", "Verdana", "Times New Roman", "Impact", "Courier New", "Tahoma", "Georgia"]
         self.subtitle_font_var = customtkinter.StringVar(value="Arial")
         self.subtitle_font_menu = customtkinter.CTkOptionMenu(self.subtitle_style_frame, values=self.subtitle_font_options, variable=self.subtitle_font_var)
         self.subtitle_font_menu.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Tamaño:").grid(row=0, column=2, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_fontsize_options = ["24", "28", "32", "36", "40", "48", "52", "60"]
+        self.subtitle_fontsize_options = ["18", "20", "22", "24", "26", "28", "30", "32", "36", "40", "44", "48", "52", "56", "60", "64", "72"]
         self.subtitle_fontsize_var = customtkinter.StringVar(value="36")
         self.subtitle_fontsize_menu = customtkinter.CTkOptionMenu(self.subtitle_style_frame, values=self.subtitle_fontsize_options, variable=self.subtitle_fontsize_var)
         self.subtitle_fontsize_menu.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+        
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Color Texto:").grid(row=1, column=0, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_color_entry = customtkinter.CTkEntry(self.subtitle_style_frame, placeholder_text="white, yellow, #FFFF00"); self.subtitle_color_entry.insert(0, "yellow")
-        self.subtitle_color_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        self.subtitle_text_color_button = customtkinter.CTkButton(self.subtitle_style_frame, text="Elegir...", width=100, command=lambda: self.pick_color_for('text_fg'))
+        self.subtitle_text_color_button.grid(row=1, column=1, padx=(5,0), pady=5, sticky="w")
+        self.subtitle_text_color_preview = customtkinter.CTkFrame(self.subtitle_style_frame, width=60, height=28, fg_color=self.subtitle_font_color_hex, border_width=1, border_color="gray50")
+        self.subtitle_text_color_preview.grid(row=1, column=1, padx=(120,5), pady=5, sticky="w")
+
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Posición:").grid(row=1, column=2, padx=(10,0), pady=5, sticky="w")
         self.subtitle_pos_options = ["Abajo", "Centro", "Arriba"]
         self.subtitle_pos_var = customtkinter.StringVar(value="Abajo")
         self.subtitle_pos_menu = customtkinter.CTkOptionMenu(self.subtitle_style_frame, values=self.subtitle_pos_options, variable=self.subtitle_pos_var)
         self.subtitle_pos_menu.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Color Borde:").grid(row=2, column=0, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_strokecolor_entry = customtkinter.CTkEntry(self.subtitle_style_frame, placeholder_text="black, transparent"); self.subtitle_strokecolor_entry.insert(0, "black")
-        self.subtitle_strokecolor_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        self.subtitle_stroke_color_button = customtkinter.CTkButton(self.subtitle_style_frame, text="Elegir...", width=100, command=lambda: self.pick_color_for('stroke_fg'))
+        self.subtitle_stroke_color_button.grid(row=2, column=1, padx=(5,0), pady=5, sticky="w")
+        self.subtitle_stroke_color_preview = customtkinter.CTkFrame(self.subtitle_style_frame, width=60, height=28, fg_color=self.subtitle_stroke_color_hex, border_width=1, border_color="gray50")
+        self.subtitle_stroke_color_preview.grid(row=2, column=1, padx=(120,5), pady=5, sticky="w")
+
         customtkinter.CTkLabel(self.subtitle_style_frame, text="Ancho Borde:").grid(row=2, column=2, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_strokewidth_options = ["0", "0.5", "1", "1.5", "2", "2.5", "3"]
-        self.subtitle_strokewidth_var = customtkinter.StringVar(value="1.5")
+        self.subtitle_strokewidth_options = ["0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"]
+        self.subtitle_strokewidth_var = customtkinter.StringVar(value="1.5") 
         self.subtitle_strokewidth_menu = customtkinter.CTkOptionMenu(self.subtitle_style_frame, values=self.subtitle_strokewidth_options, variable=self.subtitle_strokewidth_var)
         self.subtitle_strokewidth_menu.grid(row=2, column=3, padx=5, pady=5, sticky="ew")
-        customtkinter.CTkLabel(self.subtitle_style_frame, text="Color Fondo Sub:").grid(row=3, column=0, padx=(10,0), pady=5, sticky="w")
-        self.subtitle_bgcolor_entry = customtkinter.CTkEntry(self.subtitle_style_frame, placeholder_text="transparent, rgba(0,0,0,0.5)"); self.subtitle_bgcolor_entry.insert(0, "rgba(0,0,0,0.4)")
-        self.subtitle_bgcolor_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        
+        customtkinter.CTkLabel(self.subtitle_style_frame, text="Fondo Sub:").grid(row=3, column=0, padx=(10,0), pady=5, sticky="w")
+        self.subtitle_bgcolor_map = { 
+            "Transparente Total": "transparent", "Negro Semi (40%)": "rgba(0,0,0,0.4)",
+            "Negro Semi (60%)": "rgba(0,0,0,0.6)", "Gris Semi (50%)": "rgba(128,128,128,0.5)",
+            "Blanco (Opaco)": "white", "Negro (Opaco)": "black" }
+        self.subtitle_bgcolor_options = list(self.subtitle_bgcolor_map.keys())
+        self.subtitle_bgcolor_var = customtkinter.StringVar(value="Negro Semi (40%)") 
+        self.subtitle_bgcolor_menu = customtkinter.CTkOptionMenu(
+            self.subtitle_style_frame, values=self.subtitle_bgcolor_options, variable=self.subtitle_bgcolor_var)
+        self.subtitle_bgcolor_menu.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+
         self.burn_subtitles_button = customtkinter.CTkButton(
-            self.subtitle_style_frame, text="2. Grabar Subtítulos en Video", command=self.process_burn_subtitles_threaded) # Threaded
+            self.subtitle_style_frame, text="2. Grabar Subtítulos en Video", command=self.process_burn_subtitles_threaded) 
         self.burn_subtitles_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky="ew")
 
         # --- Sección 8: Estado --- 
@@ -180,8 +207,14 @@ class App(customtkinter.CTk):
         finally: self.after(100, self.check_queue_for_updates)
 
     def _get_all_action_buttons(self):
-        return [self.reddit_fetch_button, self.generate_ai_story_button, self.generate_audio_button,
-                self.generate_final_video_button, self.generate_srt_button, self.burn_subtitles_button]
+        buttons = []
+        if hasattr(self, 'reddit_fetch_button'): buttons.append(self.reddit_fetch_button)
+        if hasattr(self, 'generate_ai_story_button'): buttons.append(self.generate_ai_story_button)
+        if hasattr(self, 'generate_audio_button'): buttons.append(self.generate_audio_button)
+        if hasattr(self, 'generate_final_video_button'): buttons.append(self.generate_final_video_button)
+        if hasattr(self, 'generate_srt_button'): buttons.append(self.generate_srt_button)
+        if hasattr(self, 'burn_subtitles_button'): buttons.append(self.burn_subtitles_button)
+        return buttons
 
     def _disable_primary_action_buttons(self):
         for button in self._get_all_action_buttons():
@@ -198,23 +231,46 @@ class App(customtkinter.CTk):
             self.selected_voice_technical_name = self.available_voices_map.get(selected_friendly_name)
             self.status_label.configure(text=f"Voz seleccionada: {selected_friendly_name}")
 
+    def pick_color_for(self, color_target: str): # color_target: 'text_fg', 'stroke_fg'
+        initial_color = None
+        if color_target == 'text_fg': initial_color = self.subtitle_font_color_hex
+        elif color_target == 'stroke_fg': initial_color = self.subtitle_stroke_color_hex
+        
+        # self.withdraw() # Ocultar ventana principal (opcional, puede causar parpadeo)
+        color_info = colorchooser.askcolor(initialcolor=initial_color, title=f"Selecciona color para {color_target.replace('_fg','').replace('text','texto').replace('stroke','borde')}")
+        # self.deiconify() # Mostrar ventana principal de nuevo
+
+        if color_info and color_info[1]:
+            hex_color = color_info[1]
+            if color_target == 'text_fg':
+                self.subtitle_font_color_hex = hex_color
+                if hasattr(self, 'subtitle_text_color_preview'): self.subtitle_text_color_preview.configure(fg_color=hex_color)
+                self.status_label.configure(text=f"Color de texto subtítulos: {hex_color}")
+            elif color_target == 'stroke_fg':
+                self.subtitle_stroke_color_hex = hex_color
+                if hasattr(self, 'subtitle_stroke_color_preview'): self.subtitle_stroke_color_preview.configure(fg_color=hex_color)
+                self.status_label.configure(text=f"Color de borde subtítulos: {hex_color}")
+        else:
+            self.status_label.configure(text=f"Selección de color para {color_target.replace('_fg','')} cancelada.")
+
     # --- Reddit Fetch (Threaded) ---
     def _reddit_fetch_worker(self, url: str):
         try:
             title, body = reddit_scraper.get_post_details(url)
             self.task_queue.put(lambda t=title, b=body: self._update_gui_after_reddit_fetch(t, b))
         except Exception as e:
-            error_msg = f"Error en hilo Reddit: {str(e)}\n{traceback.format_exc()}"
-            print(error_msg)
+            error_msg = f"Error en hilo Reddit: {str(e)}\n{traceback.format_exc()}"; print(error_msg)
             self.task_queue.put(lambda: self._update_gui_after_reddit_fetch(None, None, error_msg=str(e)))
             
-    def _update_gui_after_reddit_fetch(self, title: str, body: str, error_msg: str = None):
+    def _update_gui_after_reddit_fetch(self, title: str | None, body: str | None, error_msg: str = None):
         self.story_textbox.delete("1.0", "end")
         if error_msg:
             self.story_textbox.insert("1.0", f"Error obteniendo post de Reddit:\n{error_msg}")
             self.status_label.configure(text="Error crítico al obtener post de Reddit.")
-        elif "Error" in title or "no encontrado" in title or (title == "Título no encontrado." and body == "Cuerpo del post no encontrado."): 
-            full_story = f"{title}\n\n{body}" 
+        elif title is None or body is None or "Error" in title or "no encontrado" in title or (title == "Título no encontrado." and body == "Cuerpo del post no encontrado.") : 
+            display_title = title if title else "Error"
+            display_body = body if body else "No se pudo obtener contenido."
+            full_story = f"{display_title}\n\n{display_body}" 
             self.story_textbox.insert("1.0", full_story)
             self.status_label.configure(text="Error al obtener historia de Reddit o post no textual.")
         else:
@@ -235,7 +291,7 @@ class App(customtkinter.CTk):
         thread = threading.Thread(target=self._reddit_fetch_worker, args=(url,), daemon=True)
         thread.start()
 
-    # --- AI Story Generation (Threaded - ya implementado) ---
+    # --- AI Story Generation (Threaded) ---
     def _ai_story_worker(self, subject: str, style: str, max_tokens: int):
         try:
             generated_story_text = ai_story_generator.generate_story(subject, style, max_tokens)
@@ -263,7 +319,7 @@ class App(customtkinter.CTk):
         thread = threading.Thread(target=self._ai_story_worker, args=(subject, style, max_tokens), daemon=True)
         thread.start()
             
-    # --- TTS (Threaded - ya implementado) ---
+    # --- TTS (Threaded) ---
     def _tts_worker(self, story_text: str, technical_voice_name: str, output_filename: str):
         try:
             success = tts_kokoro_module.generate_speech_with_voice_name(story_text, technical_voice_name, output_filename)
@@ -285,8 +341,8 @@ class App(customtkinter.CTk):
     def process_text_to_speech_threaded(self): 
         if not self.can_generate_audio or not self.selected_voice_technical_name: self.status_label.configure(text="Error: Voz TTS no válida."); return
         story_text = self.story_textbox.get("1.0", "end-1c").strip() 
-        placeholders = ["Aquí aparecerá la historia...", "Cargando...", "Generando historia..."]
-        is_placeholder = any(story_text.startswith(p_start) for p_start in placeholders if p_start)
+        placeholders = ["Aquí aparecerá la historia...", "Cargando...", "Generando historia..."] 
+        is_placeholder = any(story_text.startswith(p_start) for p_start in placeholders if p_start) 
         if not story_text or is_placeholder: self.status_label.configure(text="Error: No hay texto válido para TTS."); return
         
         selected_friendly_name = self.tts_voice_menu_var.get()
@@ -390,15 +446,22 @@ class App(customtkinter.CTk):
         if not self.narrated_video_path or not os.path.exists(self.narrated_video_path): self.status_label.configure(text="Error Sub Burn: Genera 'Video Narrado'."); return
         if not self.generated_srt_path or not os.path.exists(self.generated_srt_path): self.status_label.configure(text="Error Sub Burn: Genera '.SRT'."); return
         try:
+            selected_bg_color_friendly = self.subtitle_bgcolor_var.get()
+            actual_bg_color = self.subtitle_bgcolor_map.get(selected_bg_color_friendly, "rgba(0,0,0,0.4)")
+
             style_options = { 
-                'font': self.subtitle_font_var.get(), 'fontsize': int(self.subtitle_fontsize_var.get()),
-                'color': self.subtitle_color_entry.get() or 'white', 'stroke_color': self.subtitle_strokecolor_entry.get() or 'black',
-                'stroke_width': float(self.subtitle_strokewidth_var.get()), 'bg_color': self.subtitle_bgcolor_entry.get() or 'rgba(0,0,0,0.5)',
-                'position_choice': self.subtitle_pos_var.get() }
-        except ValueError: self.status_label.configure(text="Error Sub Burn: Valor inválido en estilo."); return
+                'font': self.subtitle_font_var.get(), 
+                'fontsize': int(self.subtitle_fontsize_var.get()),
+                'color': self.subtitle_font_color_hex, 
+                'stroke_color': self.subtitle_stroke_color_hex,
+                'stroke_width': float(self.subtitle_strokewidth_var.get()), 
+                'bg_color': actual_bg_color, 
+                'position_choice': self.subtitle_pos_var.get() 
+            }
+        except ValueError: self.status_label.configure(text="Error Sub Burn: Valor numérico inválido en estilo."); return
         
         video_basename = os.path.splitext(os.path.basename(self.narrated_video_path))[0]
-        output_filename = f"{video_basename}_con_subtitulos.mp4"
+        output_filename = f"{video_basename}_con_subtitulos_final.mp4"
         self.status_label.configure(text="SubBurn: Iniciando (hilo)... Puede tardar mucho."); self.update_idletasks()
         self._disable_primary_action_buttons()
         thread = threading.Thread(target=self._burn_subtitles_worker, args=(self.narrated_video_path, self.generated_srt_path, output_filename, style_options), daemon=True)
