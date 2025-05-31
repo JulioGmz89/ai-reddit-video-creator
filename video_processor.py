@@ -3,37 +3,73 @@ import os
 import traceback
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from moviepy.video.fx.all import loop as vfx_loop
-import pysrt # <--- Importar pysrt
+import pysrt # Para parsear archivos SRT
 
-# ... (tu función create_narrated_video existente sin cambios) ...
-# def create_narrated_video(video_path: str, audio_path: str, output_path: str) -> bool:
-#    # ... tu código ...
+def create_narrated_video(video_path: str, audio_path: str, output_path: str) -> bool:
+    """
+    Combina un archivo de video con un archivo de audio para crear un video narrado.
+    El audio original del video se reemplaza. La duración del video se ajusta al audio.
+    """
+    try:
+        print(f"VideoProc - Iniciando combinación: Video='{video_path}', Audio='{audio_path}'")
 
+        video_clip = VideoFileClip(video_path)
+        audio_clip = AudioFileClip(audio_path)
+
+        # Asignar el nuevo audio directamente al atributo 'audio' del videoclip
+        video_clip.audio = audio_clip
+        video_with_narration = video_clip # video_clip ahora contiene la nueva narración
+
+        # Ajustar la duración del video para que coincida con la del audio
+        if audio_clip.duration > video_with_narration.duration:
+            print(f"VideoProc - Audio ({audio_clip.duration:.2f}s) > Video ({video_with_narration.duration:.2f}s). Aplicando bucle al video.")
+            final_video_clip = vfx_loop(video_with_narration, duration=audio_clip.duration)
+            final_video_clip = final_video_clip.set_duration(audio_clip.duration)
+        elif audio_clip.duration < video_with_narration.duration:
+            print(f"VideoProc - Audio ({audio_clip.duration:.2f}s) < Video ({video_with_narration.duration:.2f}s). Cortando video.")
+            final_video_clip = video_with_narration.subclip(0, audio_clip.duration)
+        else:
+            final_video_clip = video_with_narration
+
+        print(f"VideoProc - Escribiendo video narrado en: {output_path}")
+        final_video_clip.write_videofile(
+            output_path, 
+            codec="libx264", 
+            audio_codec="aac",
+            temp_audiofile='temp-audio.m4a', 
+            remove_temp=True,
+            threads=4, 
+            fps=video_clip.fps # Usar FPS del video original o un valor estándar como 24 o 30
+        )
+
+        # Cerrar clips para liberar recursos
+        if hasattr(video_clip, 'reader') and video_clip.reader: video_clip.reader.close()
+        if hasattr(video_clip, 'audio') and video_clip.audio and hasattr(video_clip.audio, 'reader') and video_clip.audio.reader : video_clip.audio.reader.close_proc()
+        
+        if hasattr(audio_clip, 'reader') and audio_clip.reader: audio_clip.reader.close_proc()
+        
+        if final_video_clip != video_with_narration : # si se creó un nuevo clip (loop o subclip)
+             if hasattr(final_video_clip, 'reader') and final_video_clip.reader : final_video_clip.reader.close()
+             if hasattr(final_video_clip, 'audio') and final_video_clip.audio and hasattr(final_video_clip.audio, 'reader') and final_video_clip.audio.reader : final_video_clip.audio.reader.close_proc()
+        
+        print("VideoProc - Combinación de audio y video completada.")
+        return True
+
+    except Exception as e:
+        print(f"VideoProc - Error durante combinación de audio/video: {e}")
+        traceback.print_exc()
+        return False
 
 def srt_time_to_seconds(srt_time_obj) -> float:
-    """Convierte un objeto de tiempo de pysrt (o similar) a segundos totales."""
+    """Convierte un objeto de tiempo de pysrt a segundos totales."""
     return srt_time_obj.hours * 3600 + srt_time_obj.minutes * 60 + srt_time_obj.seconds + srt_time_obj.milliseconds / 1000.0
 
 def burn_subtitles_on_video(
     video_path: str, 
     srt_path: str, 
     output_path: str,
-    font_options: dict = None
+    style_options: dict = None 
 ) -> bool:
-    """
-    Graba los subtítulos de un archivo SRT en un video.
-
-    Args:
-        video_path (str): Ruta al video de entrada (el que ya tiene la narración).
-        srt_path (str): Ruta al archivo .srt.
-        output_path (str): Ruta para guardar el video con subtítulos grabados.
-        font_options (dict, optional): Diccionario con opciones de estilo para los subtítulos.
-            Ej: {'font': 'Arial-Bold', 'fontsize': 24, 'color': 'white', 
-                 'stroke_color': 'black', 'stroke_width': 1, 'bg_color': 'transparent',
-                 'position': ('center', 0.85)} # Posición relativa (85% hacia abajo)
-    Returns:
-        bool: True si fue exitoso, False en caso contrario.
-    """
     if not os.path.exists(video_path):
         print(f"Error SubBurn: Video de entrada no encontrado en '{video_path}'")
         return False
@@ -41,29 +77,29 @@ def burn_subtitles_on_video(
         print(f"Error SubBurn: Archivo SRT no encontrado en '{srt_path}'")
         return False
 
-    # Opciones de fuente por defecto si no se proporcionan
-    default_font_options = {
-        'font': 'Arial', # Prueba con fuentes comunes. Puedes necesitar especificar la ruta a un .ttf
-        'fontsize': 24,
-        'color': 'white',
-        'stroke_color': 'black', # Color del borde
-        'stroke_width': 1,      # Ancho del borde
-        'bg_color': 'rgba(0, 0, 0, 0.5)', # Fondo semitransparente para legibilidad
-        'method': 'caption',    # 'caption' para auto-ajuste de texto, 'label' para una línea
-        'align': 'center'
-        # La posición se aplicará más abajo para que sea relativa al tamaño del video.
+    default_style = {
+        'font': 'Arial', 'fontsize': 24, 'color': 'white',
+        'stroke_color': 'black', 'stroke_width': 1, 
+        'bg_color': 'rgba(0, 0, 0, 0.5)', # Fondo semitransparente
+        'position_choice': 'Abajo', # "Arriba", "Centro", "Abajo"
+        'method': 'caption', 'align': 'center'
     }
-    current_font_options = default_font_options.copy()
-    if font_options:
-        current_font_options.update(font_options)
     
-    # Posición por defecto para los subtítulos (relativa al video)
-    # ('center', 0.85) significa centrado horizontalmente, y al 85% de la altura desde arriba.
-    subtitle_position = current_font_options.pop('position', ('center', 0.85))
-
+    current_style = default_style.copy()
+    if style_options:
+        current_style.update(style_options)
+    
+    position_choice = current_style.pop('position_choice', 'Abajo')
+    
+    actual_pos_tuple = ('center', 0.85) # Default Abajo
+    if position_choice == "Arriba": actual_pos_tuple = ('center', 0.10)
+    elif position_choice == "Centro": actual_pos_tuple = ('center', 'center')
+    elif position_choice == "Abajo": actual_pos_tuple = ('center', 0.85)
 
     try:
-        print(f"SubBurn - Iniciando proceso para video: '{video_path}' y SRT: '{srt_path}'")
+        print(f"SubBurn - Iniciando. Video: '{video_path}', SRT: '{srt_path}'")
+        print(f"SubBurn - Opciones de estilo: {current_style}, Posición final: {actual_pos_tuple}")
+
         main_video_clip = VideoFileClip(video_path)
         video_width, video_height = main_video_clip.size
 
@@ -71,63 +107,60 @@ def burn_subtitles_on_video(
         
         subtitle_clips = []
         for sub_item in subs:
-            start_time = srt_time_to_seconds(sub_item.start)
-            end_time = srt_time_to_seconds(sub_item.end)
-            duration = end_time - start_time
+            start_s = srt_time_to_seconds(sub_item.start)
+            end_s = srt_time_to_seconds(sub_item.end)
+            duration_s = end_s - start_s
             
-            if duration <= 0: # Ignorar subtítulos con duración inválida
-                continue
+            if duration_s <= 0: continue
 
-            # Configurar el tamaño del TextClip para que se ajuste (ej. 80% del ancho del video)
-            # Esto es especialmente útil con method='caption'
-            text_clip_width = int(video_width * 0.9) # Subtítulos pueden ocupar el 90% del ancho
-
-            text_options_for_clip = current_font_options.copy()
-            if text_options_for_clip['method'] == 'caption':
-                text_options_for_clip['size'] = (text_clip_width, None) # Ancho fijo, altura automática
-
-
-            txt_clip = TextClip(
-                sub_item.text,
-                font=text_options_for_clip['font'],
-                fontsize=text_options_for_clip['fontsize'],
-                color=text_options_for_clip['color'],
-                bg_color=text_options_for_clip['bg_color'],
-                stroke_color=text_options_for_clip['stroke_color'],
-                stroke_width=text_options_for_clip['stroke_width'],
-                method=text_options_for_clip['method'],
-                align=text_options_for_clip['align'],
-                size=text_options_for_clip.get('size') # Usar el tamaño si se definió (para caption)
-            )
+            text_clip_w = int(video_width * 0.90)
             
-            txt_clip = txt_clip.set_position(subtitle_position, relative=True).set_duration(duration).set_start(start_time)
+            textclip_creation_args = {
+                'txt': sub_item.text,
+                'font': current_style['font'],
+                'fontsize': int(current_style['fontsize']),
+                'color': current_style['color'],
+                'bg_color': current_style['bg_color'],
+                'stroke_color': current_style['stroke_color'],
+                'stroke_width': float(current_style['stroke_width']),
+                'method': current_style['method'],
+                'align': current_style['align']
+            }
+            if current_style['method'] == 'caption':
+                textclip_creation_args['size'] = (text_clip_w, None) # Ancho fijo, altura auto
+
+            txt_clip = TextClip(**textclip_creation_args)
+            txt_clip = txt_clip.set_position(actual_pos_tuple, relative=True).set_duration(duration_s).set_start(start_s)
             subtitle_clips.append(txt_clip)
 
         if not subtitle_clips:
-            print("SubBurn - No se generaron clips de subtítulos. ¿El archivo SRT está vacío o tiene formato incorrecto?")
+            print("SubBurn - No se generaron clips de subtítulos.")
             main_video_clip.close()
-            # Guardamos el video original si no hay subtítulos para quemar? O indicamos error?
-            # Por ahora, si no hay subtítulos, no modificamos el video.
             return False 
 
-        print(f"SubBurn - Componiendo video con {len(subtitle_clips)} segmentos de subtítulos.")
-        # Crear el video final componiendo el video original con todos los TextClips
-        final_video = CompositeVideoClip([main_video_clip] + subtitle_clips, size=main_video_clip.size)
+        print(f"SubBurn - Componiendo video con {len(subtitle_clips)} subtítulos.")
+        # Asegurarse de que el audio del video principal se mantenga
+        final_video = CompositeVideoClip([main_video_clip] + subtitle_clips, size=main_video_clip.size).set_audio(main_video_clip.audio)
         
-        print(f"SubBurn - Escribiendo video final con subtítulos en: {output_path}")
+        print(f"SubBurn - Escribiendo video con subtítulos quemados en: {output_path}")
         final_video.write_videofile(
-            output_path,
-            codec="libx264",
-            audio_codec="aac", # El audio ya debería estar del video de entrada
-            temp_audiofile='temp-subburn-audio.m4a',
-            remove_temp=True,
-            threads=4,
-            fps=main_video_clip.fps
+            output_path, codec="libx264", audio_codec="aac",
+            temp_audiofile='temp-subburn-audio.m4a', remove_temp=True,
+            threads=4, fps=main_video_clip.fps
         )
+        
+        # Cerrar clips
+        if hasattr(main_video_clip, 'reader') and main_video_clip.reader: main_video_clip.reader.close()
+        if hasattr(main_video_clip, 'audio') and main_video_clip.audio and hasattr(main_video_clip.audio, 'reader') and main_video_clip.audio.reader : main_video_clip.audio.reader.close_proc()
 
-        main_video_clip.close()
-        # for tc in subtitle_clips: tc.close() # TextClip no siempre tiene close() o no es necesario
-        # final_video.close()
+        for tc in subtitle_clips: # TextClips no suelen tener 'reader' para cerrar, pero por si acaso.
+            if hasattr(tc, 'reader') and tc.reader: tc.reader.close()
+            if hasattr(tc, 'mask') and hasattr(tc.mask, 'reader') and tc.mask.reader: tc.mask.reader.close()
+
+
+        if hasattr(final_video, 'reader') and final_video.reader: final_video.reader.close()
+        if hasattr(final_video, 'audio') and final_video.audio and hasattr(final_video.audio, 'reader') and final_video.audio.reader : final_video.audio.reader.close_proc()
+
 
         print("SubBurn - Proceso de grabar subtítulos completado.")
         return True
@@ -141,32 +174,31 @@ if __name__ == '__main__':
     # --- Bloque de Prueba para burn_subtitles_on_video ---
     print("\n--- Iniciando prueba del módulo burn_subtitles_on_video ---")
     
-    # Necesitas un video YA NARRADO (ej. el 'video_final_narrado.mp4' de la etapa anterior)
-    # y un archivo SRT (ej. 'historia_narrada.srt')
-    test_input_narrated_video = "video_final_narrado.mp4" # REEMPLAZA si es necesario
-    test_input_srt_file = "historia_narrada.srt"       # REEMPLAZA si es necesario
-    test_output_video_with_subs = "video_con_subtitulos_quemados.mp4"
+    # Debes tener estos archivos generados por los pasos anteriores de tu app
+    test_input_narrated_video = "video_final_narrado.mp4" 
+    test_input_srt_file = "historia_narrada.srt"       
+    test_output_video_with_subs = "video_con_subtitulos_quemados_prueba.mp4"
 
-    # Opciones de fuente para la prueba
-    font_options_test = {
-        'font': 'Arial-Bold', # Asegúrate que esta fuente esté disponible o usa una genérica como 'Arial'
-        'fontsize': 28,
+    font_options_for_test = {
+        'font': 'Arial-Bold', 
+        'fontsize': 36, # Aumentado para visibilidad en prueba
         'color': 'yellow',
         'stroke_color': 'black',
-        'stroke_width': 1.5,
-        'bg_color': 'rgba(0, 0, 0, 0.3)', # Un poco más transparente
-        'position': ('center', 0.9) # 90% hacia abajo
+        'stroke_width': 2,
+        'bg_color': 'rgba(0,0,0,0.6)', 
+        'position_choice': 'Abajo' 
     }
 
     if os.path.exists(test_input_narrated_video) and os.path.exists(test_input_srt_file):
         print(f"Usando video narrado: '{test_input_narrated_video}' y SRT: '{test_input_srt_file}'")
-        success = burn_subtitles_on_video(
+        print(f"Opciones de estilo para prueba: {font_options_for_test}")
+        success_burn = burn_subtitles_on_video(
             test_input_narrated_video,
             test_input_srt_file,
             test_output_video_with_subs,
-            font_options=font_options_test
+            style_options=font_options_for_test # Cambiado a style_options
         )
-        if success:
+        if success_burn:
             print(f"Prueba de grabar subtítulos completada. Video generado: {test_output_video_with_subs}")
         else:
             print("Fallo en la prueba de grabar subtítulos.")
@@ -177,3 +209,6 @@ if __name__ == '__main__':
         if not os.path.exists(test_input_srt_file):
             print(f"  - El archivo SRT de entrada '{test_input_srt_file}' no existe.")
         print("Asegúrate de tener estos archivos (productos de los pasos anteriores del programa).")
+
+    # También puedes añadir aquí la prueba de create_narrated_video si lo deseas,
+    # pero asegúrate de tener un video base y un audio para ello.
