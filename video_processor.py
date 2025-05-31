@@ -1,8 +1,8 @@
 # video_processor.py
 
 import os
-from moviepy import VideoFileClip, AudioFileClip, CompositeVideoClip
-from moviepy.video.fx import Loop as vfx_loop # Para el bucle de video
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
+from moviepy.video.fx.all import loop as vfx_loop # Para el bucle de video
 
 def create_narrated_video(video_path: str, audio_path: str, output_path: str) -> bool:
     """
@@ -36,7 +36,7 @@ def create_narrated_video(video_path: str, audio_path: str, output_path: str) ->
             final_video_clip = final_video_clip.set_duration(audio_clip.duration) # Asegurar duración exacta
         elif audio_clip.duration < video_clip_with_narration.duration:
             print(f"Audio ({audio_clip.duration:.2f}s) es más corto que el video ({video_clip_with_narration.duration:.2f}s). Cortando video.")
-            final_video_clip = video_clip_with_narration.subclipped(0, audio_clip.duration)
+            final_video_clip = video_clip_with_narration.subclip(0, audio_clip.duration)
         else:
             final_video_clip = video_clip_with_narration
 
