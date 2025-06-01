@@ -4,6 +4,75 @@ import traceback
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from moviepy.video.fx.all import loop as vfx_loop
 import pysrt # Para parsear archivos SRT
+from PIL import Image
+
+VIDEO_TEMPLATES_DIR = "video_templates" 
+THUMBNAIL_CACHE_DIR = os.path.join(VIDEO_TEMPLATES_DIR, ".thumbnails_cache") 
+
+if not os.path.exists(VIDEO_TEMPLATES_DIR):
+    os.makedirs(VIDEO_TEMPLATES_DIR)
+    print(f"VideoProc - Directorio de plantillas creado: {VIDEO_TEMPLATES_DIR}")
+if not os.path.exists(THUMBNAIL_CACHE_DIR):
+    os.makedirs(THUMBNAIL_CACHE_DIR)
+    print(f"VideoProc - Directorio de caché de miniaturas creado: {THUMBNAIL_CACHE_DIR}")
+
+
+def list_video_templates() -> list[str]:
+    """Devuelve una lista de rutas completas a archivos de video en VIDEO_TEMPLATES_DIR."""
+    video_files = []
+    if not os.path.exists(VIDEO_TEMPLATES_DIR):
+        print(f"VideoProc - Directorio de plantillas '{VIDEO_TEMPLATES_DIR}' no encontrado.")
+        return video_files
+
+    valid_extensions = ('.mp4', '.mov', '.avi', '.mkv') # Extensiones de video comunes
+    for filename in sorted(os.listdir(VIDEO_TEMPLATES_DIR)): # Ordenar para consistencia
+        if filename.lower().endswith(valid_extensions):
+            video_files.append(os.path.join(VIDEO_TEMPLATES_DIR, filename))
+    return video_files
+
+def get_or_create_thumbnail(video_path: str, time_sec: float = 1.0, size: tuple = (128, 227)) -> str | None:
+    """
+    Extrae un fotograma de un video y lo guarda como miniatura, o carga desde caché si ya existe.
+    El tamaño por defecto (128, 227) es para un aspect ratio ~9:16 (vertical).
+
+    Args:
+        video_path (str): Ruta al archivo de video.
+        time_sec (float): Segundo del video del cual extraer el fotograma.
+        size (tuple): Tupla (ancho, alto) para redimensionar la miniatura.
+
+    Returns:
+        str | None: Ruta al archivo de la miniatura generada/cacheada, o None si falla.
+    """
+    if not os.path.exists(video_path):
+        print(f"VideoProc - Video no encontrado para miniatura: {video_path}")
+        return None
+
+    video_filename = os.path.basename(video_path)
+    thumbnail_filename = f"{os.path.splitext(video_filename)[0]}_thumb.png"
+    thumbnail_cache_path = os.path.join(THUMBNAIL_CACHE_DIR, thumbnail_filename)
+
+    if os.path.exists(thumbnail_cache_path):
+        # print(f"VideoProc - Usando miniatura desde caché: {thumbnail_cache_path}")
+        return thumbnail_cache_path
+
+    try:
+        print(f"VideoProc - Generando miniatura para: {video_filename}...")
+        with VideoFileClip(video_path) as clip:
+            # Extraer el fotograma
+            frame = clip.get_frame(time_sec) # Devuelve un array NumPy (H, W, C)
+        
+        # Convertir array NumPy a imagen PIL y redimensionar
+        pil_image = Image.fromarray(frame)
+        pil_image_resized = pil_image.resize(size, Image.Resampling.LANCZOS) # Usar LANCZOS para mejor calidad de reescalado
+        
+        # Guardar la imagen redimensionada
+        pil_image_resized.save(thumbnail_cache_path, "PNG")
+        print(f"VideoProc - Miniatura guardada en: {thumbnail_cache_path}")
+        return thumbnail_cache_path
+    except Exception as e:
+        print(f"VideoProc - Error generando miniatura para {video_path}: {e}")
+        traceback.print_exc()
+        return None
 
 def create_narrated_video(video_path: str, audio_path: str, output_path: str) -> bool:
     """
@@ -171,6 +240,31 @@ def burn_subtitles_on_video(
         return False
 
 if __name__ == '__main__':
+    print("--- Probando funciones de miniaturas de video ---")
+    # 1. Crea una carpeta "video_templates" en tu proyecto y pon algunos videos .mp4 cortos allí.
+    # 2. Luego ejecuta este script.
+    
+    videos = list_video_templates()
+    if videos:
+        print(f"\nVideos encontrados en '{VIDEO_TEMPLATES_DIR}':")
+        for vid in videos:
+            print(f"  - {vid}")
+            thumb_path = get_or_create_thumbnail(vid)
+            if thumb_path:
+                print(f"    Miniatura -> {thumb_path}")
+            else:
+                print(f"    No se pudo generar miniatura para {vid}")
+        
+        # Probar de nuevo para ver si usa la caché
+        print("\nVolviendo a pedir miniaturas (debería usar caché):")
+        for vid in videos:
+            thumb_path = get_or_create_thumbnail(vid)
+            if thumb_path:
+                print(f"  - Miniatura para {os.path.basename(vid)}: {thumb_path} (desde caché probablemente)")
+
+    else:
+        print(f"No se encontraron videos en la carpeta '{VIDEO_TEMPLATES_DIR}'. Por favor, añade algunos videos para probar.")
+    
     # --- Bloque de Prueba para burn_subtitles_on_video ---
     print("\n--- Iniciando prueba del módulo burn_subtitles_on_video ---")
     
