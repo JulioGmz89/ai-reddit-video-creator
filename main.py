@@ -1,55 +1,49 @@
-# main.py (Refactorizado para nuevo flujo)
+# main.py
 import customtkinter
 from customtkinter import filedialog
 import os
 import traceback
-import threading
-import queue
-from tkinter import colorchooser
+import threading 
+import queue     
+from tkinter import colorchooser 
+from playsound import playsound 
 
-# Importar tus módulos personalizados
 import reddit_scraper
 import tts_kokoro_module 
 import ai_story_generator 
 import video_processor 
 import srt_generator 
-import file_manager # <--- NUESTRO NUEVO GESTOR DE ARCHIVOS
+import file_manager 
 
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("blue")
+
+VOICE_SAMPLE_DIR = "voice_samples" 
 
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("AI Reddit Story Video Creator v2.0")
-        self.geometry("850x850") # Ajustar altura según sea necesario con menos botones
+        self.title("AI Reddit Story Video Creator v2.3") 
+        self.geometry("850x1050") 
 
-        # Variables de instancia para selecciones del usuario
         self.background_video_path = None
-        self.can_generate_audio = False # Para el botón de TTS, aunque ahora es parte de un flujo mayor
+        self.can_generate_audio = False
         self.selected_voice_technical_name = None
         
-        # Colores para subtítulos (con valores por defecto para MoviePy y vistas previas)
-        self.subtitle_font_color_hex = "#FFFF00"     # Amarillo
-        self.subtitle_stroke_color_hex = "#000000"   # Negro
+        self.subtitle_font_color_hex = "#FFFF00"     
+        self.subtitle_stroke_color_hex = "#000000"   
         
         self.task_queue = queue.Queue()
         self.after(100, self.check_queue_for_updates) 
 
-        # Asegurar que los directorios de salida existan al iniciar
         file_manager.ensure_directories_exist()
 
         self.grid_columnconfigure(0, weight=1)
-        # Reajustar filas según los nuevos frames
-        self.grid_rowconfigure(0, weight=0)  # input_frame (Reddit URL)
-        self.grid_rowconfigure(1, weight=0)  # ai_story_config_frame
-        self.grid_rowconfigure(2, weight=0)  # tts_voice_and_video_select_frame
-        self.grid_rowconfigure(3, weight=0)  # srt_and_subtitle_style_frame
-        self.grid_rowconfigure(4, weight=1)  # story_frame (Textbox) - ESTE SE EXPANDE
-        self.grid_rowconfigure(5, weight=0)  # main_action_frame
-        self.grid_rowconfigure(6, weight=0)  # status_frame
-
+        self.grid_rowconfigure(0, weight=0); self.grid_rowconfigure(1, weight=0) 
+        self.grid_rowconfigure(2, weight=0); self.grid_rowconfigure(3, weight=0) 
+        self.grid_rowconfigure(4, weight=1) 
+        self.grid_rowconfigure(5, weight=0); self.grid_rowconfigure(6, weight=0) 
 
         # --- Sección 1: Entrada de Texto (Reddit o Manual) ---
         self.input_frame = customtkinter.CTkFrame(self)
@@ -84,34 +78,42 @@ class App(customtkinter.CTk):
         # --- Sección 3: Selección de Voz TTS y Video de Fondo ---
         self.tts_video_select_frame = customtkinter.CTkFrame(self)
         self.tts_video_select_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
-        self.tts_video_select_frame.grid_columnconfigure(1, weight=1)
-        self.tts_video_select_frame.grid_columnconfigure(3, weight=1)
+        self.tts_video_select_frame.grid_columnconfigure(1, weight=1) 
+        self.tts_video_select_frame.grid_columnconfigure(3, weight=0) # Ajustar para que la etiqueta de video no se expanda demasiado
+        self.tts_video_select_frame.grid_columnconfigure(4, weight=1) # Columna para la etiqueta de video se expanda
 
-        customtkinter.CTkLabel(self.tts_video_select_frame, text="Voz TTS:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
-        self.available_voices_map = tts_kokoro_module.list_english_voices_for_pip_package()
+        customtkinter.CTkLabel(self.tts_video_select_frame, text="Voz TTS:").grid(row=0, column=0, padx=(10,5), pady=10, sticky="w")
+        self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices() # Actualizado
         self.voice_friendly_names = list(self.available_voices_map.keys())
         default_voice_friendly = ""
         if not self.voice_friendly_names:
             self.voice_friendly_names = ["No hay voces"] ; default_voice_friendly = self.voice_friendly_names[0]; self.can_generate_audio = False
+            self.selected_voice_technical_name = None
         else:
-            default_voice_friendly = self.voice_friendly_names[0]; self.selected_voice_technical_name = self.available_voices_map[default_voice_friendly]; self.can_generate_audio = True
+            default_voice_friendly = self.voice_friendly_names[0]; self.selected_voice_technical_name = self.available_voices_map.get(default_voice_friendly); self.can_generate_audio = bool(self.selected_voice_technical_name)
+        
         self.tts_voice_menu_var = customtkinter.StringVar(value=default_voice_friendly)
         self.tts_voice_menu = customtkinter.CTkOptionMenu(
             self.tts_video_select_frame, values=self.voice_friendly_names,
             variable=self.tts_voice_menu_var, command=self.update_selected_voice_technical_name)
-        self.tts_voice_menu.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.tts_voice_menu.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
         if not self.can_generate_audio: self.tts_voice_menu.configure(state="disabled")
 
+        self.test_voice_button = customtkinter.CTkButton(
+            self.tts_video_select_frame, text="Probar Voz", width=100, command=self.play_voice_sample_threaded) # Comando actualizado
+        self.test_voice_button.grid(row=0, column=2, padx=(10,5), pady=10, sticky="w")
+        if not self.can_generate_audio: self.test_voice_button.configure(state="disabled")
+
+        customtkinter.CTkLabel(self.tts_video_select_frame, text="Video Fondo:").grid(row=1, column=0, padx=(10,5), pady=10, sticky="w")
         self.select_video_button = customtkinter.CTkButton(
-            self.tts_video_select_frame, text="Seleccionar Video Fondo", command=self.select_background_video)
-        self.select_video_button.grid(row=0, column=2, padx=(20,5), pady=10, sticky="w")
-        self.selected_video_label = customtkinter.CTkLabel(self.tts_video_select_frame, text="Video no seleccionado")
-        self.selected_video_label.grid(row=0, column=3, padx=5, pady=10, sticky="ew")
+            self.tts_video_select_frame, text="Seleccionar Archivo...", command=self.select_background_video)
+        self.select_video_button.grid(row=1, column=1, padx=5, pady=10, sticky="ew") # Hacerlo expandir un poco
+        self.selected_video_label = customtkinter.CTkLabel(self.tts_video_select_frame, text="Ningún video seleccionado")
+        self.selected_video_label.grid(row=1, column=2, columnspan=2, padx=5, pady=10, sticky="ew") # Abarca 2 columnas
 
         # --- Sección 4: Configuración de Subtítulos (SRT y Estilo) ---
         self.srt_style_frame = customtkinter.CTkFrame(self)
         self.srt_style_frame.grid(row=3, column=0, padx=10, pady=5, sticky="ew")
-        # Configurar columnas para layout (label, control, label, control)
         self.srt_style_frame.grid_columnconfigure(1, weight=1); self.srt_style_frame.grid_columnconfigure(3, weight=1)
 
         customtkinter.CTkLabel(self.srt_style_frame, text="Palabras Máx./SRT:").grid(row=0, column=0, padx=(10,0), pady=5, sticky="w")
@@ -147,9 +149,9 @@ class App(customtkinter.CTk):
 
         customtkinter.CTkLabel(self.srt_style_frame, text="Color Borde Sub:").grid(row=2, column=2, padx=(10,0), pady=5, sticky="w")
         self.subtitle_stroke_color_button = customtkinter.CTkButton(self.srt_style_frame, text="Elegir...", width=100, command=lambda: self.pick_color_for('stroke_fg'))
-        self.subtitle_stroke_color_button.grid(row=2, column=3, padx=(5,0), pady=5, sticky="w") # Cambiado sticky a "w"
+        self.subtitle_stroke_color_button.grid(row=2, column=3, padx=(5,0), pady=5, sticky="w")
         self.subtitle_stroke_color_preview = customtkinter.CTkFrame(self.srt_style_frame, width=60, height=28, fg_color=self.subtitle_stroke_color_hex, border_width=1, border_color="gray50")
-        self.subtitle_stroke_color_preview.grid(row=2, column=3, padx=(120,5), pady=5, sticky="w") # Cambiado sticky a "w"
+        self.subtitle_stroke_color_preview.grid(row=2, column=3, padx=(120,5), pady=5, sticky="w")
 
         customtkinter.CTkLabel(self.srt_style_frame, text="Ancho Borde Sub:").grid(row=3, column=0, padx=(10,0), pady=5, sticky="w")
         self.subtitle_strokewidth_options = ["0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"]
@@ -170,7 +172,7 @@ class App(customtkinter.CTk):
 
         # --- Sección 5: Cuadro de Texto para la Historia ---
         self.story_frame = customtkinter.CTkFrame(self)
-        self.story_frame.grid(row=4, column=0, padx=10, pady=5, sticky="nsew") # Fila ajustada
+        self.story_frame.grid(row=4, column=0, padx=10, pady=5, sticky="nsew") 
         self.story_frame.grid_columnconfigure(0, weight=1); self.story_frame.grid_rowconfigure(0, weight=1)
         self.story_textbox = customtkinter.CTkTextbox(self.story_frame, wrap="word", font=("Arial", 14))
         self.story_textbox.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
@@ -179,7 +181,7 @@ class App(customtkinter.CTk):
         # --- Sección 6: Botón de Acción Principal ---
         self.main_action_frame = customtkinter.CTkFrame(self)
         self.main_action_frame.grid(row=5, column=0, padx=10, pady=10, sticky="ew")
-        self.main_action_frame.grid_columnconfigure(0, weight=1) # Para centrar el botón
+        self.main_action_frame.grid_columnconfigure(0, weight=1) 
 
         self.generate_all_button = customtkinter.CTkButton(
             self.main_action_frame, 
@@ -191,12 +193,12 @@ class App(customtkinter.CTk):
 
         # --- Sección 7: Estado --- 
         self.status_frame = customtkinter.CTkFrame(self) 
-        self.status_frame.grid(row=6, column=0, padx=10, pady=(5,10), sticky="ew") # Fila ajustada
+        self.status_frame.grid(row=6, column=0, padx=10, pady=(5,10), sticky="ew") 
         self.status_label = customtkinter.CTkLabel(self.status_frame, text="Estado: Listo. Configura y crea tu video.")
         self.status_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
 
     # --- Métodos de la App ---
-    def check_queue_for_updates(self): #OK
+    def check_queue_for_updates(self):
         try:
             callback = self.task_queue.get(block=False)
             if callable(callback): callback()
@@ -204,26 +206,36 @@ class App(customtkinter.CTk):
         except queue.Empty: pass
         finally: self.after(100, self.check_queue_for_updates)
 
+    def _get_main_action_buttons_for_state_management(self): # Renombrado para claridad
+        """Devuelve una lista de botones cuya actividad principal depende del flujo general."""
+        buttons = [self.generate_all_button]
+        if hasattr(self, 'reddit_fetch_button'): buttons.append(self.reddit_fetch_button)
+        if hasattr(self, 'generate_ai_story_button'): buttons.append(self.generate_ai_story_button)
+        # El botón de prueba de voz se maneja independientemente
+        return buttons
+
     def _disable_main_action_button(self):
-        if hasattr(self, 'generate_all_button') and self.generate_all_button.winfo_exists():
-            self.generate_all_button.configure(state="disabled")
-        # Podrías desactivar también los botones de config si lo deseas
-        if hasattr(self, 'reddit_fetch_button'): self.reddit_fetch_button.configure(state="disabled")
-        if hasattr(self, 'generate_ai_story_button'): self.generate_ai_story_button.configure(state="disabled")
+        for button in self._get_main_action_buttons_for_state_management():
+            if button.winfo_exists(): button.configure(state="disabled")
+        if hasattr(self, 'test_voice_button') and self.test_voice_button.winfo_exists(): # Desactivar también el de prueba
+            self.test_voice_button.configure(state="disabled")
 
 
     def _enable_main_action_button(self):
-        if hasattr(self, 'generate_all_button') and self.generate_all_button.winfo_exists():
-            self.generate_all_button.configure(state="normal")
-        if hasattr(self, 'reddit_fetch_button'): self.reddit_fetch_button.configure(state="normal")
-        if hasattr(self, 'generate_ai_story_button'): self.generate_ai_story_button.configure(state="normal")
+        for button in self._get_main_action_buttons_for_state_management():
+            if button.winfo_exists(): button.configure(state="normal")
+        if hasattr(self, 'test_voice_button') and self.test_voice_button.winfo_exists(): # Reactivar el de prueba
+            if self.can_generate_audio:
+                 self.test_voice_button.configure(state="normal")
+            else:
+                 self.test_voice_button.configure(state="disabled")
 
-    def update_selected_voice_technical_name(self, selected_friendly_name: str): #OK
-        if self.can_generate_audio:
+    def update_selected_voice_technical_name(self, selected_friendly_name: str):
+        if self.can_generate_audio: # Solo actualiza si hay voces válidas
             self.selected_voice_technical_name = self.available_voices_map.get(selected_friendly_name)
-            self.status_label.configure(text=f"Voz seleccionada: {selected_friendly_name}")
+            self.status_label.configure(text=f"Voz TTS seleccionada: {selected_friendly_name}")
 
-    def pick_color_for(self, color_target: str): #OK
+    def pick_color_for(self, color_target: str):
         initial_color = None
         if color_target == 'text_fg': initial_color = self.subtitle_font_color_hex
         elif color_target == 'stroke_fg': initial_color = self.subtitle_stroke_color_hex
@@ -240,56 +252,51 @@ class App(customtkinter.CTk):
                 if hasattr(self, 'subtitle_stroke_color_preview'): self.subtitle_stroke_color_preview.configure(fg_color=hex_color)
                 self.status_label.configure(text=f"Color de borde subtítulos: {hex_color}")
         else:
-            self.status_label.configure(text=f"Selección de color para {color_target.replace('_fg','')} cancelada.")
+            self.status_label.configure(text=f"Selección de color cancelada.")
 
     # --- Reddit Fetch (Threaded) ---
-    def _reddit_fetch_worker(self, url: str): #OK
+    def _reddit_fetch_worker(self, url: str):
         try:
             title, body = reddit_scraper.get_post_details(url)
             self.task_queue.put(lambda t=title, b=body: self._update_gui_after_reddit_fetch(t, b))
         except Exception as e:
-            error_msg = f"Error en hilo Reddit: {str(e)}\n{traceback.format_exc()}"; print(error_msg)
+            error_msg = f"Error en hilo Reddit: {str(e)}"; print(error_msg); traceback.print_exc()
             self.task_queue.put(lambda: self._update_gui_after_reddit_fetch(None, None, error_msg=str(e)))
             
-    def _update_gui_after_reddit_fetch(self, title: str | None, body: str | None, error_msg: str = None): #OK
+    def _update_gui_after_reddit_fetch(self, title: str | None, body: str | None, error_msg: str = None):
         self.story_textbox.delete("1.0", "end")
         if error_msg:
-            self.story_textbox.insert("1.0", f"Error obteniendo post de Reddit:\n{error_msg}")
-            self.status_label.configure(text="Error crítico al obtener post de Reddit.")
+            self.story_textbox.insert("1.0", f"Error obteniendo post:\n{error_msg}")
+            self.status_label.configure(text="Error al obtener post de Reddit.")
         elif title is None or body is None or "Error" in title or "no encontrado" in title or (title == "Título no encontrado." and body == "Cuerpo del post no encontrado.") : 
             display_title = title if title else "Error"
             display_body = body if body else "No se pudo obtener contenido."
             full_story = f"{display_title}\n\n{display_body}" 
             self.story_textbox.insert("1.0", full_story)
-            self.status_label.configure(text="Error al obtener historia de Reddit o post no textual.")
+            self.status_label.configure(text="Contenido de Reddit no estándar o error.")
         else:
             full_story = f"{title}\n\n{body}"
             self.story_textbox.insert("1.0", full_story)
             self.status_label.configure(text="Historia de Reddit cargada.")
         self._enable_main_action_button()
 
-    def fetch_reddit_post_threaded(self): #OK
+    def fetch_reddit_post_threaded(self):
         url = self.reddit_url_entry.get()
-        if not url:
-            self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", "Error: URL de Reddit vacía.")
-            self.status_label.configure(text="Error: URL de Reddit vacía."); return
-        
-        self.status_label.configure(text="Obteniendo post de Reddit (en hilo)..."); self.update_idletasks()
-        self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", "Cargando..."); self.update_idletasks() 
+        if not url: self.status_label.configure(text="Error: URL de Reddit vacía."); return
+        self.status_label.configure(text="Obteniendo post (hilo)..."); self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", "Cargando..."); self.update_idletasks() 
         self._disable_main_action_button()
-        thread = threading.Thread(target=self._reddit_fetch_worker, args=(url,), daemon=True)
-        thread.start()
+        thread = threading.Thread(target=self._reddit_fetch_worker, args=(url,), daemon=True); thread.start()
 
     # --- AI Story Generation (Threaded) ---
-    def _ai_story_worker(self, subject: str, style: str, max_tokens: int): #OK
+    def _ai_story_worker(self, subject: str, style: str, max_tokens: int):
         try:
             generated_story_text = ai_story_generator.generate_story(subject, style, max_tokens)
             self.task_queue.put(lambda s=generated_story_text: self._update_gui_after_ai_story(s, is_error=False))
         except Exception as e:
-            error_msg = f"Error en el hilo de IA: {str(e)}\n{traceback.format_exc()}"; print(error_msg)
-            self.task_queue.put(lambda: self._update_gui_after_ai_story(f"Error generando historia: {str(e)}", is_error=True))
+            error_msg = f"Error en hilo IA: {str(e)}"; print(error_msg); traceback.print_exc()
+            self.task_queue.put(lambda: self._update_gui_after_ai_story(f"Error generando: {str(e)}", is_error=True))
 
-    def _update_gui_after_ai_story(self, story_or_error_message: str, is_error: bool): #OK
+    def _update_gui_after_ai_story(self, story_or_error_message: str, is_error: bool):
         self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", story_or_error_message)
         if is_error: self.status_label.configure(text="IA: Error al generar historia.")
         else:
@@ -297,18 +304,16 @@ class App(customtkinter.CTk):
             else: self.status_label.configure(text="IA: ¡Historia en INGLÉS generada!")
         self._enable_main_action_button()
 
-    def process_ai_story_generation_threaded(self): #OK
+    def process_ai_story_generation_threaded(self):
         subject = self.ai_subject_entry.get().strip(); style = self.ai_style_entry.get().strip()
         if not subject or not style: self.status_label.configure(text="Error IA: Ingresa Tema y Estilo."); return
         try: max_tokens = int(self.ai_max_tokens_menu_var.get())
         except ValueError: self.status_label.configure(text="Error IA: Tokens inválido."); return
-        self.status_label.configure(text="IA: Iniciando generación (hilo)..."); self.update_idletasks()
-        self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", "Generando IA (hilo)..."); self.update_idletasks() 
+        self.status_label.configure(text="IA: Iniciando (hilo)..."); self.story_textbox.delete("1.0", "end"); self.story_textbox.insert("1.0", "Generando IA (hilo)..."); self.update_idletasks() 
         self._disable_main_action_button()
-        thread = threading.Thread(target=self._ai_story_worker, args=(subject, style, max_tokens), daemon=True)
-        thread.start()
+        thread = threading.Thread(target=self._ai_story_worker, args=(subject, style, max_tokens), daemon=True); thread.start()
             
-    def select_background_video(self): #OK
+    def select_background_video(self):
         filetypes = (("Archivos de Video", "*.mp4 *.mov *.avi *.mkv"),("Todos los archivos", "*.*")) 
         filepath = filedialog.askopenfilename(title="Selecciona un video de fondo", filetypes=filetypes)
         if filepath:
@@ -318,110 +323,127 @@ class App(customtkinter.CTk):
         else:
             self.background_video_path = None; self.selected_video_label.configure(text="Video no seleccionado")
 
-    # --- NUEVO FLUJO DE PROCESAMIENTO COMPLETO (Threaded) ---
-    def _process_all_worker(self, story_text, tts_voice_tech_name, bg_video_path, srt_max_words, subtitle_style_options, current_id):
-        intermediate_audio_path = None
-        intermediate_narrated_video_path = None
-        intermediate_srt_path = None
-        final_video_path_with_subs = None
-        current_step = ""
-
+    # --- Funciones de prueba de voz (Usando archivos pre-generados) ---
+    def _play_audio_worker(self, audio_filepath: str, voice_friendly_name: str):
+        """Worker para reproducir audio en un hilo y luego actualizar GUI."""
         try:
-            # Paso 1: Generar Audio TTS
-            current_step = "Generando Audio (TTS)..."
-            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (1/4): {current_step}"))
-            intermediate_audio_path = os.path.join(file_manager.AUDIO_DIR, f"{current_id}.wav")
-            tts_success = tts_kokoro_module.generate_speech_with_voice_name(story_text, tts_voice_tech_name, intermediate_audio_path)
-            if not tts_success: raise Exception("Fallo en la generación de audio TTS.")
+            playsound(audio_filepath) # playsound es bloqueante
+            self.task_queue.put(lambda: self._update_gui_after_sample_playback(voice_friendly_name, success=True))
+        except Exception as e_play:
+            print(f"TestVoice - Error reproduciendo {audio_filepath}: {e_play}")
+            traceback.print_exc()
+            self.task_queue.put(lambda: self._update_gui_after_sample_playback(voice_friendly_name, success=False, error_message=str(e_play)))
+        # No hay archivo temporal que borrar aquí ya que son pre-generados
 
-            # Paso 2: Generar Video Narrado (Video + Audio TTS)
-            current_step = "Creando video narrado..."
-            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (2/4): {current_step}"))
-            intermediate_narrated_video_path = os.path.join(file_manager.NARRATED_VIDEO_DIR, f"{current_id}.mp4")
-            video_narr_success = video_processor.create_narrated_video(bg_video_path, intermediate_audio_path, intermediate_narrated_video_path)
-            if not video_narr_success: raise Exception("Fallo en la creación del video narrado.")
+    def _update_gui_after_sample_playback(self, voice_friendly_name:str, success:bool, error_message:str = None):
+        """Actualiza la GUI después de intentar reproducir la muestra de voz."""
+        if success:
+            self.status_label.configure(text=f"Prueba de voz '{voice_friendly_name}' finalizada.")
+        else:
+            self.status_label.configure(text=f"Error reproduciendo prueba para '{voice_friendly_name}': {error_message}")
+        
+        # Reactivar solo el botón de prueba de voz
+        if hasattr(self, 'test_voice_button') and self.test_voice_button.winfo_exists():
+            if self.can_generate_audio:
+                 self.test_voice_button.configure(state="normal")
+            else:
+                 self.test_voice_button.configure(state="disabled")
 
-            # Paso 3: Generar Archivo SRT
-            current_step = "Generando subtítulos SRT..."
-            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (3/4): {current_step}"))
-            intermediate_srt_path = os.path.join(file_manager.SRT_DIR, f"{current_id}.srt")
-            srt_success = srt_generator.create_srt_file(intermediate_audio_path, intermediate_srt_path, max_words_per_segment=srt_max_words)
-            if not srt_success: raise Exception("Fallo en la generación del archivo SRT.")
+    def play_voice_sample_threaded(self):
+        if not self.can_generate_audio or not self.selected_voice_technical_name:
+            self.status_label.configure(text="Error: No hay voz TTS válida para probar.")
+            return
+
+        selected_friendly_name = self.tts_voice_menu_var.get()
+        technical_name = self.available_voices_map.get(selected_friendly_name)
+
+        if not technical_name:
+            self.status_label.configure(text=f"Error: No se encontró el nombre técnico para '{selected_friendly_name}'.")
+            return
+        
+        sample_audio_path = os.path.join(VOICE_SAMPLE_DIR, f"{technical_name}.wav")
+
+        if not os.path.exists(sample_audio_path):
+            self.status_label.configure(text=f"Muestra '{os.path.basename(sample_audio_path)}' no encontrada. Ejecuta generate_voice_samples.py")
+            return
             
-            # Paso 4: Grabar Subtítulos en el Video Narrado
-            current_step = "Grabando subtítulos en video..."
-            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (4/4): {current_step}"))
+        self.status_label.configure(text=f"Reproduciendo muestra para '{selected_friendly_name}'...")
+        self.update_idletasks()
+
+        if hasattr(self, 'test_voice_button'): self.test_voice_button.configure(state="disabled")
+        
+        playback_thread = threading.Thread(target=self._play_audio_worker, args=(sample_audio_path, selected_friendly_name), daemon=True)
+        playback_thread.start()
+
+    # --- FLUJO DE PROCESAMIENTO COMPLETO UNIFICADO (Threaded) ---
+    def _process_all_worker(self, story_text, tts_voice_tech_name, bg_video_path, srt_max_words, subtitle_style_options, current_id):
+        intermediate_audio_path = None; intermediate_narrated_video_path = None
+        intermediate_srt_path = None; final_video_path_with_subs = None
+        current_step = ""
+        try:
+            current_step = "Generando Audio (TTS)"
+            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (1/4): {current_step}... ID: {current_id}"))
+            intermediate_audio_path = os.path.join(file_manager.AUDIO_DIR, f"{current_id}.wav")
+            if not tts_kokoro_module.generate_speech_with_voice_name(story_text, tts_voice_tech_name, intermediate_audio_path):
+                raise Exception("Fallo en la generación de audio TTS.")
+
+            current_step = "Creando video narrado"
+            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (2/4): {current_step}..."))
+            intermediate_narrated_video_path = os.path.join(file_manager.NARRATED_VIDEO_DIR, f"{current_id}.mp4")
+            if not video_processor.create_narrated_video(bg_video_path, intermediate_audio_path, intermediate_narrated_video_path):
+                raise Exception("Fallo en la creación del video narrado.")
+
+            current_step = "Generando subtítulos SRT"
+            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (3/4): {current_step}..."))
+            intermediate_srt_path = os.path.join(file_manager.SRT_DIR, f"{current_id}.srt")
+            if not srt_generator.create_srt_file(intermediate_audio_path, intermediate_srt_path, max_words_per_segment=srt_max_words):
+                raise Exception("Fallo en la generación del archivo SRT.")
+            
+            current_step = "Grabando subtítulos en video"
+            self.task_queue.put(lambda: self.status_label.configure(text=f"Procesando (4/4): {current_step}..."))
             final_video_path_with_subs = os.path.join(file_manager.FINAL_VIDEO_DIR, f"{current_id}.mp4")
-            burn_success = video_processor.burn_subtitles_on_video(intermediate_narrated_video_path, intermediate_srt_path, final_video_path_with_subs, style_options=subtitle_style_options)
-            if not burn_success: raise Exception("Fallo al grabar los subtítulos en el video.")
-
-            # Si todo fue exitoso
-            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"¡Video final completo! Guardado en: {os.path.abspath(final_video_path_with_subs)}"))
-
+            if not video_processor.burn_subtitles_on_video(intermediate_narrated_video_path, intermediate_srt_path, final_video_path_with_subs, style_options=subtitle_style_options):
+                raise Exception("Fallo al grabar los subtítulos en el video.")
+            
+            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"¡Video final ({current_id}) completo! Guardado en: {os.path.abspath(final_video_path_with_subs)}"))
         except Exception as e:
-            error_full_msg = f"Error durante '{current_step}': {str(e)}\n{traceback.format_exc()}"
-            print(error_full_msg) # Log completo a consola
+            error_full_msg = f"Error durante '{current_step}': {str(e)}"; print(error_full_msg); traceback.print_exc()
             self.task_queue.put(lambda: self._update_gui_after_all_processing(False, f"Error en '{current_step}': {str(e)}"))
-
 
     def _update_gui_after_all_processing(self, success: bool, message: str):
         self.status_label.configure(text=message)
-        self._enable_main_action_button() # Reactivar el botón principal y los de obtención de texto
+        self._enable_main_action_button()
 
     def process_all_steps_threaded(self):
-        print("Iniciando proceso completo de generación de video...")
-        # 1. Recoger todo el texto
         story_text = self.story_textbox.get("1.0", "end-1c").strip()
-        placeholders = ["Aquí aparecerá la historia...", "Cargando...", "Generando historia..."] 
+        placeholders = ["1. Obtén/Genera una historia aquí...", "Cargando...", "Generando IA (hilo)..."]
         is_placeholder = any(story_text.startswith(p_start) for p_start in placeholders if p_start)
-        if not story_text or is_placeholder:
-            self.status_label.configure(text="Error: No hay texto válido en la historia para procesar."); return
-        
-        # 2. Verificar voz TTS
-        if not self.can_generate_audio or not self.selected_voice_technical_name:
-            self.status_label.configure(text="Error: Voz TTS no válida seleccionada."); return
+        if not story_text or is_placeholder: self.status_label.configure(text="Error: No hay texto válido para procesar."); return
+        if not self.can_generate_audio or not self.selected_voice_technical_name: self.status_label.configure(text="Error: Voz TTS no válida."); return
         tts_voice_tech_name = self.selected_voice_technical_name
-
-        # 3. Verificar video de fondo
-        if not self.background_video_path or not os.path.exists(self.background_video_path):
-            self.status_label.configure(text="Error: Selecciona un video de fondo válido."); return
+        if not self.background_video_path or not os.path.exists(self.background_video_path): self.status_label.configure(text="Error: Selecciona video de fondo."); return
         bg_video_path = self.background_video_path
-
-        # 4. Recoger configuración SRT
         max_words_str = self.srt_max_words_var.get()
         srt_max_words = None 
         if max_words_str.isdigit(): srt_max_words = int(max_words_str)
-        elif max_words_str != "Whisper (Defecto)":
-            self.status_label.configure(text="Error SRT: 'Palabras Máx.' inválido."); return
-
-        # 5. Recoger opciones de estilo de subtítulos
+        elif max_words_str != "Whisper (Defecto)": self.status_label.configure(text="Error SRT: 'Palabras Máx.' inválido."); return
         try:
             selected_bg_color_friendly = self.subtitle_bgcolor_var.get()
             actual_bg_color = self.subtitle_bgcolor_map.get(selected_bg_color_friendly, "rgba(0,0,0,0.4)")
-
             subtitle_style_options = { 
-                'font': self.subtitle_font_var.get(), 
-                'fontsize': int(self.subtitle_fontsize_var.get()),
-                'color': self.subtitle_font_color_hex, 
-                'stroke_color': self.subtitle_stroke_color_hex,
-                'stroke_width': float(self.subtitle_strokewidth_var.get()), 
-                'bg_color': actual_bg_color, 
-                'position_choice': self.subtitle_pos_var.get() 
-            }
-        except ValueError:
-            self.status_label.configure(text="Error: Valor numérico inválido en opciones de estilo de subtítulos."); return
-
-        # Generar ID único para esta tanda de archivos
+                'font': self.subtitle_font_var.get(), 'fontsize': int(self.subtitle_fontsize_var.get()),
+                'color': self.subtitle_font_color_hex, 'stroke_color': self.subtitle_stroke_color_hex,
+                'stroke_width': float(self.subtitle_strokewidth_var.get()), 'bg_color': actual_bg_color, 
+                'position_choice': self.subtitle_pos_var.get() }
+        except ValueError: self.status_label.configure(text="Error: Valor numérico inválido en estilo de subtítulos."); return
+        
         current_id = file_manager.get_next_id_str()
-        self.status_label.configure(text=f"Iniciando proceso completo para ID: {current_id}... (Esto puede tardar mucho)"); self.update_idletasks()
+        self.status_label.configure(text=f"Iniciando proceso ID: {current_id}... (Ver consola para progreso)"); self.update_idletasks()
         self._disable_main_action_button()
-
-        # Lanzar el trabajador principal en un hilo
         master_thread = threading.Thread(
             target=self._process_all_worker,
             args=(story_text, tts_voice_tech_name, bg_video_path, srt_max_words, subtitle_style_options, current_id),
-            daemon=True
-        )
+            daemon=True)
         master_thread.start()
 
 if __name__ == "__main__":

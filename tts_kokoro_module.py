@@ -62,16 +62,31 @@ def initialize_global_pipeline():
 initialize_global_pipeline()
 
 
-def list_english_voices_for_pip_package() -> dict:
+def list_available_kokoro_voices() -> dict:
     """
-    Lista voces en inglés que podrían funcionar con el paquete pip kokoro
-    si sus archivos .pt correspondientes existen en la carpeta 'voices/'
-    del repo_id que el sistema del usuario está viendo.
+    Lista voces en Inglés (Americano y Británico) con Calidad B o superior
+    que podrían funcionar con el paquete pip kokoro.
     """
     voices = {
-        "American Female (Heart / af_heart)": "af_heart",
-        # Ejemplo: Si descubres que "af_alloy" funciona, la añadirías aquí:
-        # "American Female (Alloy / af_alloy)": "af_alloy",
+        # American English (Calidad B o superior)
+        "Inglés American F (Heart)": "af_heart",   # Calidad A
+        "Inglés American F (Bella)": "af_bella",   # Calidad A
+        "Inglés American F (Alloy)": "af_alloy",   # Calidad B
+        "Inglés American F (Aoede)": "af_aoede",   # Calidad B
+        "Inglés American F (Kore)": "af_kore",    # Calidad B
+        "Inglés American F (Nicole)": "af_nicole", # Calidad B
+        "Inglés American F (Nova)": "af_nova",    # Calidad B
+        "Inglés American F (Sarah)": "af_sarah",   # Calidad B
+        "Inglés American M (Fenrir)": "am_fenrir", # Calidad B
+        "Inglés American M (Michael)": "am_michael",# Calidad B
+        "Inglés American M (Puck)": "am_puck",    # Calidad B
+        
+        # British English (Calidad B o superior)
+        "Inglés British F (Emma)": "bf_emma",     # Calidad B
+        "Inglés British M (Fable)": "bm_fable",   # Calidad B
+        "Inglés British M (George)": "bm_george", # Calidad B
+        
+        # Las voces en Español han sido eliminadas según tu solicitud.
     }
     return voices
 
