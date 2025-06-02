@@ -5,9 +5,17 @@ from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVide
 from moviepy.video.fx.all import loop as vfx_loop
 import pysrt # Para parsear archivos SRT
 from PIL import Image
+import numpy as np 
+
+SUBTITLE_PREVIEW_IMAGE_TEMP_FILE = "_subtitle_preview_image_temp.png"
+PREVIEW_SUBTITLE_HEIGHT = 80 # Altura fija para la imagen de previsualización del subtítulo
 
 VIDEO_TEMPLATES_DIR = "video_templates" 
 THUMBNAIL_CACHE_DIR = os.path.join(VIDEO_TEMPLATES_DIR, ".thumbnails_cache") 
+
+COMBINED_PREVIEW_IMAGE_TEMP_FILE = "_combined_preview_temp.png" 
+# Constante para la imagen temporal del TextClip del subtítulo (si se guarda por separado primero)
+SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE = "_subtitle_only_preview_temp.png" 
 
 if not os.path.exists(VIDEO_TEMPLATES_DIR):
     os.makedirs(VIDEO_TEMPLATES_DIR)
@@ -31,41 +39,23 @@ def list_video_templates() -> list[str]:
     return video_files
 
 def get_or_create_thumbnail(video_path: str, time_sec: float = 1.0, size: tuple = (128, 227)) -> str | None:
-    """
-    Extrae un fotograma de un video y lo guarda como miniatura, o carga desde caché si ya existe.
-    El tamaño por defecto (128, 227) es para un aspect ratio ~9:16 (vertical).
-
-    Args:
-        video_path (str): Ruta al archivo de video.
-        time_sec (float): Segundo del video del cual extraer el fotograma.
-        size (tuple): Tupla (ancho, alto) para redimensionar la miniatura.
-
-    Returns:
-        str | None: Ruta al archivo de la miniatura generada/cacheada, o None si falla.
-    """
-    if not os.path.exists(video_path):
-        print(f"VideoProc - Video no encontrado para miniatura: {video_path}")
+    if not os.path.exists(video_path): # ... (sin cambios)
         return None
 
     video_filename = os.path.basename(video_path)
-    thumbnail_filename = f"{os.path.splitext(video_filename)[0]}_thumb.png"
+    # AÑADIR TAMAÑO AL NOMBRE DE LA MINIATURA EN CACHÉ
+    thumbnail_filename = f"{os.path.splitext(video_filename)[0]}_thumb_{size[0]}x{size[1]}.png"
     thumbnail_cache_path = os.path.join(THUMBNAIL_CACHE_DIR, thumbnail_filename)
 
     if os.path.exists(thumbnail_cache_path):
-        # print(f"VideoProc - Usando miniatura desde caché: {thumbnail_cache_path}")
         return thumbnail_cache_path
-
+    # ... (resto de la función como estaba, usando el 'size' proporcionado para .resize()) ...
     try:
-        print(f"VideoProc - Generando miniatura para: {video_filename}...")
+        print(f"VideoProc - Generando miniatura ({size[0]}x{size[1]}) para: {video_filename}...")
         with VideoFileClip(video_path) as clip:
-            # Extraer el fotograma
-            frame = clip.get_frame(time_sec) # Devuelve un array NumPy (H, W, C)
-        
-        # Convertir array NumPy a imagen PIL y redimensionar
+            frame = clip.get_frame(time_sec) 
         pil_image = Image.fromarray(frame)
-        pil_image_resized = pil_image.resize(size, Image.Resampling.LANCZOS) # Usar LANCZOS para mejor calidad de reescalado
-        
-        # Guardar la imagen redimensionada
+        pil_image_resized = pil_image.resize(size, Image.Resampling.LANCZOS) # O BICUBIC
         pil_image_resized.save(thumbnail_cache_path, "PNG")
         print(f"VideoProc - Miniatura guardada en: {thumbnail_cache_path}")
         return thumbnail_cache_path
@@ -238,6 +228,148 @@ def burn_subtitles_on_video(
         print(f"Error SubBurn - Ocurrió un error grabando subtítulos: {e}")
         traceback.print_exc()
         return False
+    
+def generate_subtitle_preview_image_file(
+    text: str, 
+    style_options: dict, 
+    preview_width: int = 300 
+) -> str | None:
+    try:
+        position_choice = style_options.get('position_choice', 'Abajo') 
+        text_align = 'South' 
+        if position_choice == "Arriba": text_align = 'North'
+        elif position_choice == "Centro": text_align = 'Center'
+        
+        fontsize = int(style_options.get('fontsize', 24))
+        stroke_width = float(style_options.get('stroke_width', 1))
+
+        textclip_kwargs = {
+            'txt': text,
+            'font': style_options.get('font', 'Arial'),
+            'fontsize': fontsize,
+            'color': style_options.get('color', 'white'),
+            'bg_color': 'transparent', # Fondo transparente para la imagen del texto
+            'stroke_color': style_options.get('stroke_color'),
+            'stroke_width': stroke_width,
+            'method': 'caption', 
+            'align': text_align, # Esto alinea el texto DENTRO de la caja del TextClip
+             # Tamaño: Ancho fijo, altura fija para que se note la alineación vertical
+            'size': (preview_width, PREVIEW_SUBTITLE_HEIGHT) 
+        }
+        
+        if stroke_width == 0:
+            textclip_kwargs.pop('stroke_color', None)
+            textclip_kwargs.pop('stroke_width', None)
+
+        print(f"SubPreview Gen - Creando TextClip con: {textclip_kwargs}")
+        with TextClip(**textclip_kwargs) as clip:
+            clip.save_frame(SUBTITLE_PREVIEW_IMAGE_TEMP_FILE, t=0) 
+        
+        return SUBTITLE_PREVIEW_IMAGE_TEMP_FILE
+    except Exception as e:
+        print(f"SubPreview Gen - Error generando imagen de TextClip para preview: {e}")
+        traceback.print_exc()
+        if os.path.exists(SUBTITLE_PREVIEW_IMAGE_TEMP_FILE):
+            try: os.remove(SUBTITLE_PREVIEW_IMAGE_TEMP_FILE)
+            except Exception as e_del: print(f"SubPreview Gen - Error borrando preview: {e_del}")
+        return None
+    
+def create_composite_preview_image(
+    base_video_thumbnail_path: str,
+    subtitle_text: str,
+    style_options: dict
+) -> str | None:
+    if not os.path.exists(base_video_thumbnail_path):
+        print(f"PreviewComp - Miniatura de video base no encontrada: {base_video_thumbnail_path}")
+        return None
+
+    try:
+        base_img_pil = Image.open(base_video_thumbnail_path).convert("RGBA")
+        base_width, base_height = base_img_pil.size
+
+        # Ancho para el TextClip del subtítulo (un poco menos que la miniatura base)
+        text_clip_width = int(base_width * 0.90) 
+        # La altura del TextClip será automática (None) para que se ajuste al texto
+        text_clip_height_allowance = None # Dejar que MoviePy decida la altura del TextClip
+
+        position_choice = style_options.get('position_choice', 'Abajo')
+        text_align_map = {"Arriba": "North", "Centro": "Center", "Abajo": "South"}
+        text_align = text_align_map.get(position_choice, 'South')
+        fontsize = int(style_options.get('fontsize', 36)) # Usar un fontsize por defecto más grande para preview
+        stroke_width = float(style_options.get('stroke_width', 1.5))
+
+        textclip_kwargs = {
+            'txt': subtitle_text,
+            'font': style_options.get('font', 'Arial'),
+            'fontsize': fontsize,
+            'color': style_options.get('color', 'yellow'),
+            'bg_color': 'transparent', # <<<--- MUY IMPORTANTE para la superposición
+            'stroke_color': style_options.get('stroke_color', 'black'),
+            'stroke_width': stroke_width,
+            'method': 'caption', # 'caption' es bueno para multilínea
+            'align': text_align, # Alineación del texto DENTRO de la caja del TextClip
+            'size': (text_clip_width, text_clip_height_allowance) 
+        }
+        if stroke_width == 0: # MoviePy puede dar error si stroke_width es 0 y stroke_color está definido
+            textclip_kwargs.pop('stroke_color', None)
+            textclip_kwargs.pop('stroke_width', None)
+        
+        print(f"PreviewComp - Creando TextClip para subtítulo: '{subtitle_text[:20]}...' con {textclip_kwargs}")
+        # Crear el TextClip y obtener su frame como un array NumPy RGBA
+        with TextClip(**textclip_kwargs) as txt_clip:
+            # .get_frame(0) para imagen estática. El canal alfa es crucial.
+            # Asegurarse de que el clip se renderice con alfa:
+            subtitle_frame_array = txt_clip.get_frame(0) # Esto es (height, width, 3) si no hay alfa
+            # Para asegurar canal alfa si TextClip no lo añade por defecto con bg_color='transparent'
+            # Es mejor que TextClip genere una máscara alfa si es posible.
+            # Alternativamente, crear una imagen PIL desde el array y asegurar que es RGBA.
+            # Si txt_clip.mask no existe o bg_color no fue suficiente para crear alfa:
+            if subtitle_frame_array.shape[2] == 3: # Si es RGB, añadir canal alfa
+                 alpha = np.full((subtitle_frame_array.shape[0], subtitle_frame_array.shape[1], 1), 255, dtype=np.uint8)
+                 # Crear una máscara simple basada en si el color es el de fondo (si no es transparente)
+                 # Esto es complejo si no sabemos el color de fondo real que usa TextClip si 'transparent' falla.
+                 # Lo ideal es que TextClip con bg_color='transparent' produzca un frame con alfa.
+                 # Por ahora, asumimos que si es RGB, el texto no es transparente.
+                 # Si el texto es 'white' y el fondo 'transparent', el alfa debe ser 0 donde no hay texto.
+                 # MoviePy debería manejar esto con save_frame a PNG.
+                 # Vamos a intentar guardar el TextClip en un archivo PNG temporal para obtener el RGBA correcto.
+            txt_clip.save_frame(SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE, t=0) # Usar la constante global
+
+        if not os.path.exists(SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE):
+            print("PreviewComp - Fallo al generar la imagen temporal del subtítulo desde TextClip.")
+            return None
+            
+        subtitle_img_pil = Image.open(SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE).convert("RGBA")
+        sub_width, sub_height = subtitle_img_pil.size
+
+        # Calcular posición para superponer el subtítulo
+        pos_x = (base_width - sub_width) // 2 
+        pos_y = 0
+        if position_choice == "Arriba":   pos_y = int(base_height * 0.10) 
+        elif position_choice == "Centro": pos_y = (base_height // 2) - (sub_height // 2)
+        elif position_choice == "Abajo":  pos_y = int(base_height * 0.90) - sub_height 
+        
+        pos_y = max(0, min(pos_y, base_height - sub_height)) # Asegurar que esté dentro de los límites
+        pos_x = max(0, min(pos_x, base_width - sub_width))   # Asegurar que esté dentro de los límites
+
+
+        print(f"PreviewComp - Componiendo. Base: {base_width}x{base_height}, Sub: {sub_width}x{sub_height}, Pos: ({pos_x},{pos_y})")
+        composite_img = base_img_pil.copy() # Usar la miniatura del video como base
+        composite_img.paste(subtitle_img_pil, (pos_x, pos_y), subtitle_img_pil) # Usar el canal alfa de la imagen del subtítulo como máscara
+
+        composite_img.save(COMBINED_PREVIEW_IMAGE_TEMP_FILE, "PNG") # Guardar la imagen compuesta
+        print(f"PreviewComp - Imagen compuesta guardada: {COMBINED_PREVIEW_IMAGE_TEMP_FILE}")
+        
+        # Limpiar la imagen temporal solo del subtítulo
+        if os.path.exists(SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE):
+            try: os.remove(SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE)
+            except Exception as e_del: print(f"PreviewComp - No se pudo borrar {SUBTITLE_ONLY_PREVIEW_IMAGE_TEMP_FILE}: {e_del}")
+            
+        return COMBINED_PREVIEW_IMAGE_TEMP_FILE
+
+    except Exception as e:
+        print(f"PreviewComp - Error creando imagen compuesta: {e}"); traceback.print_exc()
+        return None
 
 if __name__ == '__main__':
     print("--- Probando funciones de miniaturas de video ---")
