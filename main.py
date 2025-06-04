@@ -669,6 +669,7 @@ class App(customtkinter.CTk):
         for widget in self.voice_thumbnail_grid_main.winfo_children():
             widget.destroy()
         self.voice_buttons_map.clear()
+        self.selected_voice_button_widget = None # Anular referencia al botón antiguo
 
         vr, vc = 0, 0
         # Mostrar solo hasta MAX_THUMBNAILS_MAIN_GUI de self.active_main_ui_voices_meta
@@ -782,35 +783,45 @@ class App(customtkinter.CTk):
         print(f"select_voice_from_popup: FullFN='{full_friendly_name_from_popup}', TechN='{technical_name_from_popup}'")
         
         # 1. Actualizar la selección global de voz
-        self.update_selected_voice_technical_name(full_friendly_name_from_popup)
+        self.update_selected_voice_technical_name(full_friendly_name_from_popup) # Esto actualiza self.selected_voice_technical_name
 
-        # 2. Determinar si la voz seleccionada ya está en la cuadrícula principal
-        currently_displayed_tech_names = [vm["tech"] for vm in self.active_main_ui_voices_meta[:MAX_THUMBNAILS_MAIN_GUI]]
-        
-        if technical_name_from_popup not in currently_displayed_tech_names:
-            # La voz no está en la cuadrícula principal, hay que traerla al frente
-            target_voice_meta = next((vm for vm in self.desired_main_ui_voices_meta if vm["tech"] == technical_name_from_popup), None)
+        # --- INICIO LÓGICA PARA MOVER LA VOZ AL FRENTE DE LA UI PRINCIPAL ---
+        target_voice_meta = next((vm for vm in self.desired_main_ui_voices_meta if vm["tech"] == technical_name_from_popup), None)
             
-            if not target_voice_meta: # Si no está en las deseadas, construir metadatos básicos
-                short_friendly = full_friendly_name_from_popup.split(" (")[0].split(" ")[-1]
-                img_file = f"{technical_name_from_popup.split('_')[-1] if '_' in technical_name_from_popup else technical_name_from_popup}.png"
-                # Determinar lang_code basado en el prefijo del nombre técnico si es posible
-                lang_code_guess = "en" # Default
-                if technical_name_from_popup.startswith("es_") or "_es_" in technical_name_from_popup: lang_code_guess = "es"
+        if not target_voice_meta: # Si no está en las deseadas, construir metadatos básicos
+            # Esto es para voces que están en available_voices_map pero no en desired_main_ui_voices_meta
+            short_friendly = full_friendly_name_from_popup.split(" (")[0].split(" ")[-1]
+            img_file_name_guess = f"{technical_name_from_popup.split('_')[-1] if '_' in technical_name_from_popup else technical_name_from_popup}.png"
+            
+            lang_code_guess = "en" # Default
+            if technical_name_from_popup.startswith("es_") or "_es_" in technical_name_from_popup: lang_code_guess = "es"
                 
-                target_voice_meta = {"tech": technical_name_from_popup, "friendly_short": short_friendly, "img": img_file, "lang_code_for_sentence": lang_code_guess}
+            target_voice_meta = {
+                "tech": technical_name_from_popup, 
+                "friendly_short": short_friendly, 
+                "img": img_file_name_guess, # Usar el nombre de archivo adivinado
+                "lang_code_for_sentence": lang_code_guess
+            }
 
-            # Eliminarla de active_main_ui_voices_meta si ya existía (para evitar duplicados al insertarla al inicio)
+        # Mover la voz seleccionada (target_voice_meta) al principio de active_main_ui_voices_meta
+        if target_voice_meta: # Asegurarse de que tenemos una meta para la voz
+            # Eliminarla de active_main_ui_voices_meta si ya existía (para evitar duplicados y asegurar que se mueva desde cualquier posición)
             self.active_main_ui_voices_meta = [vm for vm in self.active_main_ui_voices_meta if vm["tech"] != technical_name_from_popup]
+            # Insertarla al principio
             self.active_main_ui_voices_meta.insert(0, target_voice_meta)
-            
-            self.refresh_main_voice_avatar_grid() # Redibujar la cuadrícula principal
+        # --- FIN LÓGICA PARA MOVER LA VOZ ---
 
-        # 3. Resaltar la voz (ya sea que estuviera o se acaba de añadir/mover)
-        self.highlight_selected_voice_avatar(technical_name_from_popup)
+        # 2. Cerrar el popup
+        if hasattr(self, 'all_voices_popup') and self.all_voices_popup.winfo_exists():
+            self.all_voices_popup.grab_release()
+            self.all_voices_popup.destroy()
+            delattr(self, 'all_voices_popup')
+
+        # 3. Redibujar la cuadrícula principal (que ahora tendrá la voz seleccionada al inicio de active_main_ui_voices_meta)
+        self.refresh_main_voice_avatar_grid() 
         
-        # 4. Cerrar el popup
-        if hasattr(self, 'all_voices_popup'): self.all_voices_popup.grab_release(); self.all_voices_popup.destroy(); delattr(self, 'all_voices_popup')
+        # 4. Resaltar la voz en la NUEVA cuadrícula principal
+        self.highlight_selected_voice_avatar(technical_name_from_popup) # technical_name_from_popup es el nombre técnico de la voz seleccionada
 
     def open_view_all_videos_popup(self): # Stub - copy from previous
         print("open_view_all_videos_popup called")
