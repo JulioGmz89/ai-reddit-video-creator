@@ -140,20 +140,20 @@ def burn_subtitles_on_video(
         'font': 'Arial', 'fontsize': 24, 'color': 'white',
         'stroke_color': 'black', 'stroke_width': 1, 
         'bg_color': 'rgba(0, 0, 0, 0.5)', # Fondo semitransparente
-        'position_choice': 'Abajo', # "Arriba", "Centro", "Abajo"
+        'position_choice': 'Bottom', # "Top", "Center", "Bottom"
         'method': 'caption', 'align': 'center'
     }
     
     current_style = default_style.copy()
     if style_options:
         current_style.update(style_options)
-    
-    position_choice = current_style.pop('position_choice', 'Abajo')
-    
-    actual_pos_tuple = ('center', 0.85) # Default Abajo
-    if position_choice == "Arriba": actual_pos_tuple = ('center', 0.10)
-    elif position_choice == "Centro": actual_pos_tuple = ('center', 'center')
-    elif position_choice == "Abajo": actual_pos_tuple = ('center', 0.85)
+
+    position_choice = current_style.pop('position_choice', 'Bottom') # Default to Bottom
+
+    actual_pos_tuple = ('center', 0.85) # Default for Bottom
+    if position_choice == "Top": actual_pos_tuple = ('center', 0.10)
+    elif position_choice == "Center": actual_pos_tuple = ('center', 'center')
+    elif position_choice == "Bottom": actual_pos_tuple = ('center', 0.85)
 
     try:
         print(f"SubBurn - Iniciando. Video: '{video_path}', SRT: '{srt_path}'")
@@ -292,9 +292,9 @@ def create_composite_preview_image(
         # La altura del TextClip será automática (None) para que se ajuste al texto
         text_clip_height_allowance = None # Dejar que MoviePy decida la altura del TextClip
 
-        position_choice = style_options.get('position_choice', 'Abajo')
-        text_align_map = {"Arriba": "North", "Centro": "Center", "Abajo": "South"}
-        text_align = text_align_map.get(position_choice, 'South')
+        position_choice = style_options.get('position_choice', 'Bottom') # Default to Bottom
+        text_align_map = {"Top": "North", "Center": "Center", "Bottom": "South"} # Use English keys
+        text_align = text_align_map.get(position_choice, 'South') # Default to South if key not found
         fontsize = int(style_options.get('fontsize', 36)) # Usar un fontsize por defecto más grande para preview
         stroke_width = float(style_options.get('stroke_width', 1.5))
 
@@ -345,9 +345,9 @@ def create_composite_preview_image(
         # Calcular posición para superponer el subtítulo
         pos_x = (base_width - sub_width) // 2 
         pos_y = 0
-        if position_choice == "Arriba":   pos_y = int(base_height * 0.10) 
-        elif position_choice == "Centro": pos_y = (base_height // 2) - (sub_height // 2)
-        elif position_choice == "Abajo":  pos_y = int(base_height * 0.90) - sub_height 
+        if position_choice == "Top":   pos_y = int(base_height * 0.10)
+        elif position_choice == "Center": pos_y = (base_height // 2) - (sub_height // 2)
+        elif position_choice == "Bottom":  pos_y = int(base_height * 0.90) - sub_height
         
         pos_y = max(0, min(pos_y, base_height - sub_height)) # Asegurar que esté dentro de los límites
         pos_x = max(0, min(pos_x, base_width - sub_width))   # Asegurar que esté dentro de los límites
