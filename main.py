@@ -192,7 +192,7 @@ class App(customtkinter.CTk):
         self.input_method_frame.grid_columnconfigure(0, weight=1)
         reddit_url_frame = customtkinter.CTkFrame(self.input_method_frame, fg_color="transparent")
         reddit_url_frame.grid(row=0, column=0, sticky="ew", pady=(0,5)); reddit_url_frame.grid_columnconfigure(0, weight=1)
-        self.reddit_url_entry = customtkinter.CTkEntry(reddit_url_frame, placeholder_text="TEXT INPUT REDDIT URL", fg_color=COLOR_BACKGROUND_CARD, text_color=COLOR_TEXT_PRIMARY, height=35, corner_radius=CORNER_RADIUS_INPUT, border_color=COLOR_BACKGROUND_CARD)
+        self.reddit_url_entry = customtkinter.CTkEntry(reddit_url_frame, placeholder_text="Reddit URL", fg_color=COLOR_BACKGROUND_CARD, text_color=COLOR_TEXT_PRIMARY, height=35, corner_radius=CORNER_RADIUS_INPUT, border_color=COLOR_BACKGROUND_CARD)
         self.reddit_url_entry.grid(row=0, column=0, padx=(0,10), pady=5, sticky="ew")
         self.reddit_fetch_button = customtkinter.CTkButton(reddit_url_frame, text="SEARCH", command=self.fetch_reddit_post_threaded, fg_color=COLOR_PRIMARY_ACTION, hover_color=COLOR_PRIMARY_ACTION_HOVER, text_color=COLOR_TEXT_PRIMARY, height=35, width=100, corner_radius=CORNER_RADIUS_BUTTON, font=("Arial", 13, "bold"))
         self.reddit_fetch_button.grid(row=0, column=1, pady=5)
@@ -207,7 +207,15 @@ class App(customtkinter.CTk):
         customtkinter.CTkLabel(self.story_frame, text="Text to Speech", font=("Arial", 15, "bold"), text_color=COLOR_TEXT_PRIMARY).grid(row=0, column=0, pady=(10,5), padx=15, sticky="w")
         self.story_textbox = customtkinter.CTkTextbox(self.story_frame, wrap="word", font=("Arial", 13), height=150, activate_scrollbars=True, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, text_color=COLOR_TEXT_PRIMARY, corner_radius=CORNER_RADIUS_INPUT, border_width=1, border_color=COLOR_BACKGROUND_WIDGET_INPUT)
         self.story_textbox.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0,15))
-        self.story_textbox.insert("1.0", "1. Fetch a story using the URL or generate one with AI.\n2. Configure Voice, Video Background, and Subtitles.\n3. Click the play button to create video.")
+
+        self.story_textbox_placeholder_text = "1. Fetch a story using the URL or generate one with AI.\n2. Configure Voice, Video Background, and Subtitles.\n3. Click the play button to create video."
+        self.story_textbox_is_placeholder_active = False # Se establecerá en True por _setup_story_textbox_placeholder
+        self._setup_story_textbox_placeholder()
+        
+        # Bind events for placeholder behavior and button state
+        self.story_textbox.bind("<KeyRelease>", lambda event: self._check_story_and_set_generate_button_state())
+        self.story_textbox.bind("<FocusIn>", self._on_story_textbox_focus_in)
+        self.story_textbox.bind("<FocusOut>", self._on_story_textbox_focus_out)
         self.ai_subject_entry = customtkinter.CTkEntry(self); self.ai_style_entry = customtkinter.CTkEntry(self)
         self.ai_max_tokens_slider_var = customtkinter.IntVar(value=150)
         self.ai_max_tokens_menu_var = customtkinter.StringVar(value=str(self.ai_max_tokens_slider_var.get()))
@@ -518,6 +526,27 @@ class App(customtkinter.CTk):
 
     # --- ALL OTHER METHODS from the previous response MUST BE COPIED HERE ---
     # (check_queue_for_updates, _get_main_action_buttons_for_state_management, etc.)
+
+    def _setup_story_textbox_placeholder(self):
+        """Inserta el placeholder y configura el color inicial."""
+        self.story_textbox.insert("1.0", self.story_textbox_placeholder_text)
+        self.story_textbox.configure(text_color=COLOR_TEXT_SECONDARY) # Color más claro para el placeholder
+        self.story_textbox_is_placeholder_active = True
+
+    def _on_story_textbox_focus_in(self, event=None):
+        """Maneja el evento FocusIn para el story_textbox."""
+        if self.story_textbox_is_placeholder_active:
+            self.story_textbox.delete("1.0", "end")
+            self.story_textbox.configure(text_color=COLOR_TEXT_PRIMARY) # Color normal para la entrada del usuario
+            self.story_textbox_is_placeholder_active = False
+
+    def _on_story_textbox_focus_out(self, event=None):
+        """Maneja el evento FocusOut para el story_textbox."""
+        if not self.story_textbox.get("1.0", "end-1c").strip(): # Si está vacío
+            self.story_textbox.insert("1.0", self.story_textbox_placeholder_text)
+            self.story_textbox.configure(text_color=COLOR_TEXT_SECONDARY) # Color del placeholder
+            self.story_textbox_is_placeholder_active = True
+
     # ...
     # For brevity, I am only showing the modified __init__ and open_ai_story_generation_popup.
     # You NEED to re-insert all other methods from the previous complete main.py here.
@@ -906,8 +935,8 @@ class App(customtkinter.CTk):
     def _is_story_valid(self) -> bool:
         if not hasattr(self, 'story_textbox'): return False
         story_text = self.story_textbox.get("1.0", "end-1c").strip()
-        placeholders = [
-            "1. Fetch a story using the URL or generate one with AI.",
+        placeholders = [ # Add the initial text as a placeholder
+            self.story_textbox_placeholder_text, # Usar la variable del placeholder
             "Loading story from Reddit...",
             "Generating AI story...",
             # Puedes añadir más placeholders si los usas
@@ -921,7 +950,10 @@ class App(customtkinter.CTk):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists():
             return
         if self.long_process_active: 
+            # Si un proceso largo está activo, el botón debe permanecer deshabilitado
+            # y la imagen actualizada para reflejar eso, independientemente del contenido del textbox.
             return
+            
         if self._is_story_valid():
             self.generate_video_button.configure(state="normal")
         else:
