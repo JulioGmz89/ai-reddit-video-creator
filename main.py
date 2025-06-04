@@ -105,6 +105,7 @@ class App(customtkinter.CTk):
         self.selected_voice_technical_name = None
         self.selected_voice_button_widget = None
         self.voice_buttons_map = {}
+        self.active_main_ui_voices_meta = [] # Voces actualmente mostradas en la UI principal
 
         self.subtitle_font_color_hex = "#FFFF00"
         self.subtitle_stroke_color_hex = "#000000"
@@ -221,39 +222,30 @@ class App(customtkinter.CTk):
         self.voice_thumbnail_grid_main = customtkinter.CTkFrame(self.voice_selection_outer_frame, fg_color="transparent")
         self.voice_thumbnail_grid_main.pack(fill="x", expand=True, padx=15, pady=5)
         
-        self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices()
-        print(f"DEBUG: self.available_voices_map = {self.available_voices_map}") # Debug print
-        self.voice_friendly_names = list(self.available_voices_map.keys())
-        
-        self.desired_main_ui_voices_meta = [{"tech": "af_heart", "friendly": "Heart", "img": "heart.png"}, {"tech": "am_fenrir", "friendly": "Fenrir", "img": "fenrir.png"}, {"tech": "af_bella", "friendly": "Bella", "img": "bella.png"}, {"tech": "bf_emma", "friendly": "Emma", "img": "emma.png"}, {"tech": "am_michael", "friendly": "Michael", "img": "michael.png"}, {"tech": "bm_george", "friendly": "George", "img": "george.png"},]
-        available_tech_names_list = list(self.available_voices_map.values())
-        print(f"DEBUG: available_tech_names_list from Kokoro = {available_tech_names_list}") # Debug print
+        # Definición ÚNICA y COMPLETA de las voces deseadas para la UI.
+        # Esta lista ya existe más arriba en tu código, asegúrate que sea esta la que se use.
+        # self.desired_main_ui_voices_meta = [
+        #     {"tech": "af_heart", "friendly_short": "Heart", "img": "heart.png", "lang_code_for_sentence": "en"},
+        #     {"tech": "am_fenrir", "friendly_short": "Fenrir", "img": "fenrir.png", "lang_code_for_sentence": "en"},
+        #     # ... (hasta 14 voces)
+        # ]
+        # La redefinición que existía aquí con 6 voces ha sido eliminada en un commit anterior, lo cual es correcto.
 
-        default_voice_tech, default_voice_friendly_display = None, "No voices"
-        if self.voice_friendly_names: # Check if any voices were loaded at all
-            for voice_meta_item in self.desired_main_ui_voices_meta:
-                if voice_meta_item["tech"] in available_tech_names_list: default_voice_tech, default_voice_friendly_display = voice_meta_item["tech"], voice_meta_item["friendly"]; break
-            if not default_voice_tech and available_tech_names_list: # Fallback if none of desired are available, but others are
-                default_voice_tech = available_tech_names_list[0]
-                # Find corresponding friendly name for this tech name
-                for fn, tn in self.available_voices_map.items():
-                    if tn == default_voice_tech: default_voice_friendly_display = fn.split(" (")[0].split(" ")[-1]; break # Short friendly
-        self.selected_voice_technical_name = default_voice_tech; self.can_generate_audio = bool(self.selected_voice_technical_name)
-        self.tts_voice_menu_var = customtkinter.StringVar(value=default_voice_friendly_display)
+        self._load_all_available_voices() # Carga y establece la voz por defecto
+        self.refresh_main_voice_avatar_grid() # Dibuja los avatares iniciales
         
-        vr, vc = 0, 0
-        for voice_meta in self.desired_main_ui_voices_meta:
-            tech_name, friendly_display_name, img_file = voice_meta["tech"], voice_meta["friendly"], voice_meta["img"]
-            if tech_name in available_tech_names_list:
-                avatar_img = None
-                try: avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file); os.path.exists(avatar_img_path) and (avatar_img := CTkImage(Image.open(avatar_img_path), size=(45,45)))
-                except Exception as e: print(f"AVATAR MAIN DEBUG: Error loading {img_file} for {friendly_display_name}: {e}")
-                if not avatar_img: print(f"AVATAR MAIN DEBUG: Image NOT LOADED/FOUND for {friendly_display_name}: {os.path.join(self.VOICE_AVATAR_PATH, img_file)}")
-                voice_button = customtkinter.CTkButton(self.voice_thumbnail_grid_main, text=friendly_display_name, image=avatar_img, compound="top", fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, width=110, height=75, text_color=COLOR_TEXT_SECONDARY, font=("Arial", 11))
-                voice_button.configure(command=lambda fn=friendly_display_name, tn=tech_name, b=voice_button: self.select_voice_from_avatar(fn, tn, b)); voice_button.grid(row=vr, column=vc, padx=4, pady=4, sticky="nsew"); self.voice_buttons_map[tech_name] = voice_button; vc += 1
-                if vc >= VOICE_AVATAR_GRID_COLUMNS_MAIN: vc = 0; vr += 1
-            else: print(f"Info: Main UI voice {friendly_display_name} ({tech_name}) NOT available. Skipping display.")
-        for i in range(VOICE_AVATAR_GRID_COLUMNS_MAIN): self.voice_thumbnail_grid_main.grid_columnconfigure(i, weight=1)
+        # Configurar la voz seleccionada por defecto y resaltarla
+        if self.selected_voice_technical_name:
+            # Asegurar que tts_voice_menu_var tenga el nombre corto si el defecto es de active_main_ui_voices_meta
+            default_voice_meta = next((vm for vm in self.active_main_ui_voices_meta if vm["tech"] == self.selected_voice_technical_name), None)
+            if default_voice_meta:
+                self.tts_voice_menu_var.set(default_voice_meta["friendly_short"]) # Usar friendly_short para el display inicial
+            else: # Si el defecto vino del fallback general
+                full_fn = next((fn for fn, tn in self.available_voices_map.items() if tn == self.selected_voice_technical_name), "Unknown Voice")
+                self.tts_voice_menu_var.set(full_fn.split(" (")[0].split(" ")[-1])
+
+            self.after(150, lambda tech_name=self.selected_voice_technical_name: self.highlight_selected_voice_avatar(tech_name))
+        
         self.test_voice_button = customtkinter.CTkButton(self.voice_selection_outer_frame, text="Test Selected Voice", command=self.play_voice_sample_threaded, corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY)
         self.test_voice_button.pack(pady=(5,15), padx=15, anchor="w"); self.test_voice_button.configure(state="disabled" if not self.can_generate_audio else "normal", fg_color="grey50" if not self.can_generate_audio else COLOR_BACKGROUND_WIDGET_INPUT)
 
@@ -274,11 +266,11 @@ class App(customtkinter.CTk):
         self.srt_style_frame = customtkinter.CTkFrame(self.left_scrollable_frame, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
         self.srt_style_frame.grid(row=current_row_in_left_panel, column=0, sticky="ew", padx=5, pady=10); current_row_in_left_panel += 1; self.srt_style_frame.grid_columnconfigure(1, weight=1); self.srt_style_frame.grid_columnconfigure(3, weight=1)
         customtkinter.CTkLabel(self.srt_style_frame, text="Captions configuration", font=("Arial", 15, "bold"), text_color=COLOR_TEXT_PRIMARY).grid(row=0, column=0, columnspan=4, padx=15, pady=(10,10), sticky="w")
-        self.srt_max_words_options = ["Whisper (Defecto)", "1", "2", "3", "4", "5", "6", "7"]; self.srt_max_words_var = customtkinter.StringVar(value="1")
+        self.srt_max_words_options = ["Whisper (Default)", "1", "2", "3", "4", "5", "6", "7"]; self.srt_max_words_var = customtkinter.StringVar(value="1")
         create_caption_optionmenu_local(self.srt_style_frame, "Max words per segment:", self.srt_max_words_options, self.srt_max_words_var, col=0)
         self.subtitle_fontsize_options = ["18", "24", "32", "36", "40", "48", "56", "64", "72"]; self.subtitle_fontsize_var = customtkinter.StringVar(value="64")
         create_caption_optionmenu_local(self.srt_style_frame, "Font size:", self.subtitle_fontsize_options, self.subtitle_fontsize_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2); self.cap_row_internal += 1
-        self.subtitle_pos_options = ["Abajo", "Centro", "Arriba"]; self.subtitle_pos_var = customtkinter.StringVar(value="Centro")
+        self.subtitle_pos_options = ["Bottom", "Center", "Top"]; self.subtitle_pos_var = customtkinter.StringVar(value="Center")
         create_caption_optionmenu_local(self.srt_style_frame, "Position:", self.subtitle_pos_options, self.subtitle_pos_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=0)
         self.subtitle_font_options = ["Arial", "Verdana", "Impact", "Courier New"]; self.subtitle_font_var = customtkinter.StringVar(value="Impact")
         create_caption_optionmenu_local(self.srt_style_frame, "Font:", self.subtitle_font_options, self.subtitle_font_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2); self.cap_row_internal += 1
@@ -300,12 +292,55 @@ class App(customtkinter.CTk):
 
         self._load_video_templates_list()
         self.refresh_main_thumbnail_grid()
-        if self.selected_voice_technical_name:
-            self.after(150, lambda tech_name=self.selected_voice_technical_name: self.highlight_selected_voice_avatar(tech_name))
+        # self.highlight_selected_voice_avatar() se llama después de refresh_main_voice_avatar_grid
         self.update_subtitle_preview_display()
-        self._check_story_and_set_generate_button_state() # Use renamed method
-        # print(f"DEBUG_SELF (App __init__ end): type(self) is {type(self)}, id(self) is {id(self)}")
+        self._check_story_and_set_generate_button_state()
 
+
+    def _load_all_available_voices(self):
+        """Carga las voces disponibles y configura la lista activa de voces para la UI principal."""
+        self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices()
+        self.voice_friendly_names = list(self.available_voices_map.keys())
+
+        # Esta es la lista completa de voces preferidas con metadatos detallados.
+        # Asegúrate de que esta definición sea la única para self.desired_main_ui_voices_meta en __init__.
+        self.desired_main_ui_voices_meta = [
+            {"tech": "af_heart", "friendly_short": "Heart", "img": "heart.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_fenrir", "friendly_short": "Fenrir", "img": "fenrir.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_bella", "friendly_short": "Bella", "img": "bella.png", "lang_code_for_sentence": "en"},
+            {"tech": "bf_emma", "friendly_short": "Emma", "img": "emma.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_michael", "friendly_short": "Michael", "img": "michael.png", "lang_code_for_sentence": "en"},
+            {"tech": "bm_george", "friendly_short": "George", "img": "george.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_alloy", "friendly_short": "Alloy", "img": "alloy.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_aoede", "friendly_short": "Aoede", "img": "aoede.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_kore", "friendly_short": "Kore", "img": "kore.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_nicole", "friendly_short": "Nicole", "img": "nicole.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_nova", "friendly_short": "Nova", "img": "nova.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_sarah", "friendly_short": "Sarah", "img": "sarah.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_puck", "friendly_short": "Puck", "img": "puck.png", "lang_code_for_sentence": "en"},
+            {"tech": "bm_fable", "friendly_short": "Fable", "img": "fable.png", "lang_code_for_sentence": "en"}
+        ]
+
+        self.active_main_ui_voices_meta = [
+            vm for vm in self.desired_main_ui_voices_meta if vm["tech"] in self.available_voices_map.values()
+        ]
+
+        available_tech_names_list = list(self.available_voices_map.values())
+        print(f"DEBUG: available_tech_names_list from Kokoro = {available_tech_names_list}") # Debug print
+
+        default_voice_tech, default_voice_friendly_display = None, "No voices"
+        if self.active_main_ui_voices_meta: # Prioritize from active (preferred and available)
+            default_voice_tech = self.active_main_ui_voices_meta[0]["tech"]
+            default_voice_friendly_display = self.active_main_ui_voices_meta[0]["friendly_short"]
+        elif available_tech_names_list: # Fallback to any available voice
+                default_voice_tech = available_tech_names_list[0]
+                for fn, tn in self.available_voices_map.items():
+                    if tn == default_voice_tech:
+                        default_voice_friendly_display = fn.split(" (")[0].split(" ")[-1] # Short friendly name
+                        break
+        
+        self.selected_voice_technical_name = default_voice_tech; self.can_generate_audio = bool(self.selected_voice_technical_name)
+        self.tts_voice_menu_var = customtkinter.StringVar(value=default_voice_friendly_display)
 
     # --- METHODS ---
 
@@ -629,6 +664,33 @@ class App(customtkinter.CTk):
         self._enable_main_action_button()
         self._check_story_and_set_generate_button_state() 
 
+    def refresh_main_voice_avatar_grid(self):
+        """Redibuja los avatares de voz en la UI principal."""
+        for widget in self.voice_thumbnail_grid_main.winfo_children():
+            widget.destroy()
+        self.voice_buttons_map.clear()
+
+        vr, vc = 0, 0
+        # Mostrar solo hasta MAX_THUMBNAILS_MAIN_GUI de self.active_main_ui_voices_meta
+        for voice_meta in self.active_main_ui_voices_meta[:MAX_THUMBNAILS_MAIN_GUI]:
+            tech_name = voice_meta["tech"]
+            friendly_display_name = voice_meta["friendly_short"] # Usar friendly_short para el texto del botón
+            img_file = voice_meta["img"]
+            
+            avatar_img = None
+            try:
+                avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file)
+                if os.path.exists(avatar_img_path):
+                    avatar_img = CTkImage(Image.open(avatar_img_path), size=(45,45))
+            except Exception as e: print(f"AVATAR MAIN DEBUG: Error loading {img_file} for {friendly_display_name}: {e}")
+            if not avatar_img: print(f"AVATAR MAIN DEBUG: Image NOT LOADED/FOUND for {friendly_display_name}: {avatar_img_path if 'avatar_img_path' in locals() else 'path unknown'}")
+            
+            voice_button = customtkinter.CTkButton(self.voice_thumbnail_grid_main, text=friendly_display_name, image=avatar_img, compound="top", fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, width=110, height=75, text_color=COLOR_TEXT_SECONDARY, font=("Arial", 11))
+            voice_button.configure(command=lambda fs=friendly_display_name, tn=tech_name, b=voice_button: self.select_voice_from_avatar(fs, tn, b))
+            voice_button.grid(row=vr, column=vc, padx=4, pady=4, sticky="nsew"); self.voice_buttons_map[tech_name] = voice_button; vc += 1
+            if vc >= VOICE_AVATAR_GRID_COLUMNS_MAIN: vc = 0; vr += 1
+        for i in range(VOICE_AVATAR_GRID_COLUMNS_MAIN): self.voice_thumbnail_grid_main.grid_columnconfigure(i, weight=1)
+
     def _play_audio_worker(self, audio_filepath: str, voice_name: str):
         try: playsound(audio_filepath, True)
         except Exception as e: self.task_queue.put(lambda: self._update_gui_after_sample_playback(voice_name, False, str(e)))
@@ -686,7 +748,7 @@ class App(customtkinter.CTk):
         self.status_label.configure(text=f"Starting video gen (ID: {id_str})..."); self.update_idletasks()
         self._disable_main_action_button()
         threading.Thread(target=self._process_all_worker, args=(story, self.selected_voice_technical_name, self.background_video_path, srt_words, sub_style, id_str), daemon=True).start()
-        
+
     def open_view_all_voices_popup(self): # Stub - copy from previous
         print("open_view_all_voices_popup called")
         if hasattr(self, 'all_voices_popup') and self.all_voices_popup.winfo_exists(): self.all_voices_popup.focus(); self.all_voices_popup.grab_set(); return
@@ -697,9 +759,17 @@ class App(customtkinter.CTk):
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_voices_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
         scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
         vr, vc = 0, 0
-        desired_main_ui_voices_meta = [{"tech": "af_heart", "friendly": "Heart", "img": "heart.png"}, {"tech": "am_fenrir", "friendly": "Fenrir", "img": "fenrir.png"}, {"tech": "af_bella", "friendly": "Bella", "img": "bella.png"}, {"tech": "bf_emma", "friendly": "Emma", "img": "emma.png"}, {"tech": "am_michael", "friendly": "Michael", "img": "michael.png"}, {"tech": "bm_george", "friendly": "George", "img": "george.png"},] # Define or access
+        # Usar self.desired_main_ui_voices_meta (la lista de 14) para obtener metadatos de imagen
+        # y self.available_voices_map para iterar sobre todas las voces disponibles.
         for friendly_name, tech_name in self.available_voices_map.items():
-            img_file_guess = next((df["img"] for df in desired_main_ui_voices_meta if df["tech"] == tech_name), f"{tech_name.split('_')[-1] if '_' in tech_name else tech_name}.png")
+            # Intentar obtener la imagen de self.desired_main_ui_voices_meta
+            voice_meta_info = next((vm for vm in self.desired_main_ui_voices_meta if vm["tech"] == tech_name), None)
+            img_file_guess = "default_avatar.png" # Un avatar por defecto si no se encuentra
+            if voice_meta_info and "img" in voice_meta_info:
+                img_file_guess = voice_meta_info["img"]
+            else: # Si no está en desired_main_ui_voices_meta, intentar adivinar
+                img_file_guess = f"{tech_name.split('_')[-1] if '_' in tech_name else tech_name}.png"
+
             avatar_img = None
             try: avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file_guess); os.path.exists(avatar_img_path) and (avatar_img := CTkImage(Image.open(avatar_img_path), size=(50,50)))
             except Exception as e: print(f"POPUP AVATAR DEBUG: Error loading {img_file_guess} for {friendly_name}: {e}")
@@ -708,10 +778,38 @@ class App(customtkinter.CTk):
             if vc >= VOICE_AVATAR_GRID_COLUMNS_POPUP: vc = 0; vr += 1
         for i in range(VOICE_AVATAR_GRID_COLUMNS_POPUP): scrollable_frame.grid_columnconfigure(i, weight=1)
 
-    def select_voice_from_popup(self, friendly_name, technical_name): # Stub - copy from previous
-        print(f"select_voice_from_popup: {friendly_name}, {technical_name}")
-        self.update_selected_voice_technical_name(friendly_name)
-        self.highlight_selected_voice_avatar(technical_name)
+    def select_voice_from_popup(self, full_friendly_name_from_popup: str, technical_name_from_popup: str):
+        print(f"select_voice_from_popup: FullFN='{full_friendly_name_from_popup}', TechN='{technical_name_from_popup}'")
+        
+        # 1. Actualizar la selección global de voz
+        self.update_selected_voice_technical_name(full_friendly_name_from_popup)
+
+        # 2. Determinar si la voz seleccionada ya está en la cuadrícula principal
+        currently_displayed_tech_names = [vm["tech"] for vm in self.active_main_ui_voices_meta[:MAX_THUMBNAILS_MAIN_GUI]]
+        
+        if technical_name_from_popup not in currently_displayed_tech_names:
+            # La voz no está en la cuadrícula principal, hay que traerla al frente
+            target_voice_meta = next((vm for vm in self.desired_main_ui_voices_meta if vm["tech"] == technical_name_from_popup), None)
+            
+            if not target_voice_meta: # Si no está en las deseadas, construir metadatos básicos
+                short_friendly = full_friendly_name_from_popup.split(" (")[0].split(" ")[-1]
+                img_file = f"{technical_name_from_popup.split('_')[-1] if '_' in technical_name_from_popup else technical_name_from_popup}.png"
+                # Determinar lang_code basado en el prefijo del nombre técnico si es posible
+                lang_code_guess = "en" # Default
+                if technical_name_from_popup.startswith("es_") or "_es_" in technical_name_from_popup: lang_code_guess = "es"
+                
+                target_voice_meta = {"tech": technical_name_from_popup, "friendly_short": short_friendly, "img": img_file, "lang_code_for_sentence": lang_code_guess}
+
+            # Eliminarla de active_main_ui_voices_meta si ya existía (para evitar duplicados al insertarla al inicio)
+            self.active_main_ui_voices_meta = [vm for vm in self.active_main_ui_voices_meta if vm["tech"] != technical_name_from_popup]
+            self.active_main_ui_voices_meta.insert(0, target_voice_meta)
+            
+            self.refresh_main_voice_avatar_grid() # Redibujar la cuadrícula principal
+
+        # 3. Resaltar la voz (ya sea que estuviera o se acaba de añadir/mover)
+        self.highlight_selected_voice_avatar(technical_name_from_popup)
+        
+        # 4. Cerrar el popup
         if hasattr(self, 'all_voices_popup'): self.all_voices_popup.grab_release(); self.all_voices_popup.destroy(); delattr(self, 'all_voices_popup')
 
     def open_view_all_videos_popup(self): # Stub - copy from previous
@@ -750,8 +848,15 @@ class App(customtkinter.CTk):
             if col >= grid_cols: col = 0; row += 1
         for i in range(grid_cols): parent_frame.grid_columnconfigure(i, weight=1)
 
+    def select_voice_from_avatar(self, friendly_short_name: str, technical_name: str, button_widget_ref):
+        """Llamado cuando se hace clic en un avatar de la UI principal."""
+        # Encontrar el nombre amigable completo para actualizar el estado global
+        full_friendly_name = next((fn for fn, tn in self.available_voices_map.items() if tn == technical_name), None)
+        if full_friendly_name:
+            self.update_selected_voice_technical_name(full_friendly_name) # Esto actualiza selected_voice_technical_name, tts_voice_menu_var, etc.
+        self.highlight_selected_voice_avatar(technical_name) # Resalta el botón clickeado
 
-    def _select_video_from_thumbnail_internal(self, video_path: str, from_popup: bool = False, popup_window_ref: customtkinter.CTkToplevel = None): # Stub - copy
+    def _select_video_from_thumbnail_internal(self, video_path: str, from_popup: bool = False, popup_window_ref: customtkinter.CTkToplevel = None):
         print(f"_select_video_from_thumbnail_internal: {video_path}")
         self.background_video_path = video_path; filename = os.path.basename(video_path)
         if hasattr(self, 'active_video_display_label'): self.active_video_display_label.configure(text=f"Selected: {filename}")
@@ -762,7 +867,31 @@ class App(customtkinter.CTk):
             popup_window_ref.grab_release(); popup_window_ref.destroy()
             if popup_window_ref == getattr(self, 'all_videos_main_popup', None): delattr(self, 'all_videos_main_popup')
         self.refresh_main_thumbnail_grid(newly_selected_path=video_path)
-    
+
+    def update_selected_voice_technical_name(self, selected_full_friendly_name: str):
+        """Actualiza la voz TTS seleccionada globalmente. Espera un nombre amigable completo."""
+        self.selected_voice_technical_name = self.available_voices_map.get(selected_full_friendly_name)
+
+        if self.selected_voice_technical_name:
+            self.can_generate_audio = True
+            # El tts_voice_menu_var debe reflejar el nombre corto para consistencia si es una voz principal
+            voice_meta_for_display = next((vm for vm in self.active_main_ui_voices_meta if vm["tech"] == self.selected_voice_technical_name), None)
+            if voice_meta_for_display and "friendly_short" in voice_meta_for_display:
+                display_name_for_menu = voice_meta_for_display["friendly_short"]
+            else: # Si no está en active_main_ui_voices_meta o no tiene friendly_short, usar parte del full_friendly_name
+                display_name_for_menu = selected_full_friendly_name.split(" (")[0].split(" ")[-1]
+            
+            self.tts_voice_menu_var.set(display_name_for_menu) # Actualiza el OptionMenu (si lo usaras para mostrar la selección)
+            
+            status_display_name = selected_full_friendly_name.split("(")[0].strip()
+            self.status_label.configure(text=f"TTS Voice selected: {status_display_name}")
+            if hasattr(self, 'test_voice_button'): self.test_voice_button.configure(state="normal", fg_color=COLOR_BACKGROUND_WIDGET_INPUT)
+        else:
+            self.can_generate_audio = False
+            self.status_label.configure(text=f"Voice not found: {selected_full_friendly_name}")
+            if hasattr(self, 'test_voice_button'): self.test_voice_button.configure(state="disabled", fg_color="grey50")
+        self._check_story_and_set_generate_button_state()
+
     def _is_story_valid(self) -> bool:
         if not hasattr(self, 'story_textbox'): return False
         story_text = self.story_textbox.get("1.0", "end-1c").strip()
