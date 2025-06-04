@@ -2,7 +2,8 @@
 import os
 import re # Para expresiones regulares al buscar IDs
 
-BASE_OUTPUT_DIR = r"C:\AI Reddit Videos" # Ruta base para todas las salidas
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
 
 # Definición de subdirectorios
 AUDIO_DIR_NAME = "audio"
@@ -44,7 +45,7 @@ def get_next_id_str() -> str:
         if os.path.exists(FINAL_VIDEO_DIR):
             # Buscar archivos que sigan el patrón NNN.<ext> (ej. 001.mp4)
             # Usamos una expresión regular para extraer solo los números del nombre base.
-            id_pattern = re.compile(r"^(\d{3,})\..*$") # 3 o más dígitos al inicio del nombre de archivo
+            id_pattern = re.compile(r"^(\d{4,})\..*$") # 3 o más dígitos al inicio del nombre de archivo
             
             for filename in os.listdir(FINAL_VIDEO_DIR):
                 match = id_pattern.match(filename)
@@ -61,7 +62,7 @@ def get_next_id_str() -> str:
         # Una mejor estrategia podría ser añadir un sufijo único si el escaneo falla.
 
     next_id = last_id + 1
-    return f"{next_id:03d}" # Formatear a 3 dígitos con ceros a la izquierda
+    return f"{next_id:04d}" # Formatear a 3 dígitos con ceros a la izquierda
 
 if __name__ == '__main__':
     print("Probando File Manager...")

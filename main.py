@@ -7,6 +7,8 @@ import traceback
 import threading
 import queue
 from tkinter import colorchooser
+import tempfile # Added for temporary file/directory management
+import shutil # Added for removing temporary directory
 from playsound import playsound
 # import functools # Not actively used but kept for potential future use
 
@@ -1257,24 +1259,71 @@ class App(customtkinter.CTk):
         threading.Thread(target=self._play_audio_worker, args=(sample_path, friendly), daemon=True).start()
 
     def _process_all_worker(self, story, voice_tech, bg_video, srt_words, sub_style, id_str):
-        paths, step = {}, ""
+        step = ""
+        # Determine language for SRT (assuming English based on current voice support)
+        language_for_srt = "en"
+        temp_dir_for_narrated_video = None
         try:
             self.task_queue.put(self.show_generating_video_popup)
-            step = "TTS"; self.task_queue.put(lambda: self.update_generating_log(f"1/4: {step}..."))
-            paths['audio'] = os.path.join(file_manager.AUDIO_DIR, f"{id_str}.wav")
-            if not tts_kokoro_module.generate_speech_with_voice_name(story, voice_tech, paths['audio']): raise Exception("TTS failed.")
-            step = "Narrated Video"; self.task_queue.put(lambda: self.update_generating_log(f"2/4: {step}..."))
-            paths['narr_vid'] = os.path.join(file_manager.NARRATED_VIDEO_DIR, f"{id_str}.mp4")
-            if not video_processor.create_narrated_video(bg_video, paths['audio'], paths['narr_vid']): raise Exception("Narrated video failed.")
-            step = "SRT Gen"; self.task_queue.put(lambda: self.update_generating_log(f"3/4: {step}..."))
-            paths['srt'] = os.path.join(file_manager.SRT_DIR, f"{id_str}.srt")
-            if not srt_generator.create_srt_file(paths['audio'], paths['srt'], max_words_per_segment=srt_words): raise Exception("SRT failed.")
-            step = "Burn Subs"; self.task_queue.put(lambda: self.update_generating_log(f"4/4: {step}..."))
-            paths['final'] = os.path.join(file_manager.FINAL_VIDEO_DIR, f"{id_str}_{voice_tech}.mp4")
-            if not video_processor.burn_subtitles_on_video(paths['narr_vid'], paths['srt'], paths['final'], style_options=sub_style): raise Exception("Burn subs failed.")
-            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"Video '{id_str}' created! Path: {os.path.abspath(paths['final'])}"))
-        except Exception as e: err_msg = f"Err in '{step}': {e}"; print(err_msg); traceback.print_exc(); self.task_queue.put(lambda: self._update_gui_after_all_processing(False, err_msg))
-        finally: self.task_queue.put(self.hide_generating_video_popup)
+            # Step 1: Generate Speech (TTS)
+            step = "Generating Speech (TTS)"
+            self.task_queue.put(lambda: self.update_generating_log(f"1/3: {step}..."))
+            audio_path = os.path.join(file_manager.AUDIO_DIR, f"{id_str}.wav")
+            if not tts_kokoro_module.generate_speech_with_voice_name(story, voice_tech, audio_path):
+                raise Exception("TTS (Speech Generation) failed.")
+
+            # Step 2: Generate Subtitles (SRT)
+            step = "Generating Subtitles (SRT)"
+            self.task_queue.put(lambda: self.update_generating_log(f"2/3: {step}..."))
+            srt_path = os.path.join(file_manager.SRT_DIR, f"{id_str}.srt")
+            if not srt_generator.create_srt_file(audio_path, srt_path, language=language_for_srt, max_words_per_segment=srt_words):
+                raise Exception("SRT (Subtitle Generation) failed.")
+
+            # Step 3: Create Final Video (Narrate and Burn Subtitles)
+            step = "Assembling Final Video"
+            self.task_queue.put(lambda: self.update_generating_log(f"3/3: {step}..."))
+
+            # Sub-step 3a: Create temporary narrated video
+            self.task_queue.put(lambda: self.update_generating_log(f"3/3: {step} - Adding narration to video..."))
+            # Create the temporary directory within the base output directory
+            temp_dir_for_narrated_video = tempfile.mkdtemp(prefix=f"narr_vid_temp_{id_str}_", dir=file_manager.BASE_OUTPUT_DIR)
+            temp_narrated_video_path = os.path.join(temp_dir_for_narrated_video, f"{id_str}_temp_narrated.mp4")
+            
+            print(f"DEBUG: Creating temporary narrated video at: {temp_narrated_video_path}") # Debug print
+
+            if not video_processor.create_narrated_video(bg_video, audio_path, temp_narrated_video_path):
+                raise Exception("Temporary narrated video creation failed.")
+
+            # Sub-step 3b: Burn subtitles onto the temporary narrated video to create the final video
+            self.task_queue.put(lambda: self.update_generating_log(f"3/3: {step} - Burning subtitles..."))
+            final_video_path = os.path.join(file_manager.FINAL_VIDEO_DIR, f"{id_str}.mp4")
+            
+            print(f"DEBUG: Burning subtitles from {temp_narrated_video_path} to final video at: {final_video_path}") # Debug print
+
+            if not video_processor.burn_subtitles_on_video(temp_narrated_video_path, srt_path, final_video_path, style_options=sub_style):
+                raise Exception("Burning subtitles to create final video failed.")
+
+            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"Video '{id_str}' created! Path: {os.path.abspath(final_video_path)}"))
+
+        except Exception as e:
+            err_msg = f"Error during '{step}': {e}"
+            print(err_msg); traceback.print_exc()
+            self.task_queue.put(lambda: self._update_gui_after_all_processing(False, err_msg))
+        finally:
+            # Clean up the temporary narrated video file and its directory
+            print(f"DEBUG: Cleanup started for temp dir: {temp_dir_for_narrated_video}") # Debug print
+            if temp_dir_for_narrated_video and os.path.exists(temp_dir_for_narrated_video):
+                try:
+                    # Use shutil.rmtree to remove the directory and its contents
+                    shutil.rmtree(temp_dir_for_narrated_video)
+                    print(f"DEBUG: Successfully deleted temporary directory: {temp_dir_for_narrated_video}") # Debug print
+                except Exception as e_clean_dir:
+                    print(f"Warning: Failed to delete temporary directory {temp_dir_for_narrated_video}: {e_clean_dir}")
+                    self.task_queue.put(lambda: self.update_generating_log(f"Warning: Failed to delete temp dir {temp_dir_for_narrated_video}: {e_clean_dir}"))
+            else:
+                 print(f"DEBUG: No temporary directory to clean up or path is invalid: {temp_dir_for_narrated_video}") # Debug print
+
+            self.task_queue.put(self.hide_generating_video_popup)
 
     def _update_gui_after_all_processing(self, success: bool, message: str):
         self.status_label.configure(text=message)
