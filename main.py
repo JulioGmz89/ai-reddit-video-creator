@@ -53,17 +53,28 @@ class App(customtkinter.CTk):
         super().__init__()
         # print(f"DEBUG_SELF (App __init__ start): type(self) is {type(self)}, id(self) is {id(self)}")
 
-        self.title("AI Reddit Story Video Creator")
+        self.title("AI Reddit Video Generator")
         self.geometry("1400x900")
         self.configure(fg_color=COLOR_BACKGROUND_MAIN)
         
-        self.long_process_active = False
-
         self.ASSETS_BASE_PATH = "assets/"
         self.VOICE_AVATAR_PATH = os.path.join(self.ASSETS_BASE_PATH, "avatars/")
+        self.APP_ICON_PATH = os.path.join(self.ASSETS_BASE_PATH, "RedditVidGen_Logo.ico") # Cambiado a .ico
+        self.long_process_active = False
+
         self.BUTTONS_ASSETS_PATH = os.path.join(self.ASSETS_BASE_PATH, "buttons/")
         self.PHONE_FRAME_IMAGE_PATH = os.path.join(self.ASSETS_BASE_PATH, "phoneframe.png")
         self.phone_frame_template_pil = None
+
+        # Set application icon
+        try:
+            if os.path.exists(self.APP_ICON_PATH):
+                self.iconbitmap(self.APP_ICON_PATH)
+                print(f"Application icon set to {self.APP_ICON_PATH}")
+            else:
+                print(f"Warning: Application icon not found at {self.APP_ICON_PATH}")
+        except Exception as e:
+            print(f"Error setting application icon: {e}")
 
         # Paths for the new Generate Video button images
         self.GENERATE_ICON_DEFAULT_PATH = os.path.join(self.BUTTONS_ASSETS_PATH, "generatevideo_default.png")
@@ -360,6 +371,13 @@ class App(customtkinter.CTk):
         self.ai_popup.title("Generate a story with AI"); self.ai_popup.geometry("500x400") # Adjusted height for slider
         self.ai_popup.attributes("-topmost", True); self.ai_popup.resizable(False, False)
         self.ai_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.ai_popup.grab_set()
+        # Set popup icon
+        try:
+            if os.path.exists(self.APP_ICON_PATH):
+                self.ai_popup.iconbitmap(self.APP_ICON_PATH)
+            else:
+                print(f"Warning: App icon not found for AI story popup at {self.APP_ICON_PATH}")
+        except Exception as e: print(f"Error setting icon for AI story popup: {e}")
 
         main_frame = customtkinter.CTkFrame(self.ai_popup, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
@@ -651,6 +669,13 @@ class App(customtkinter.CTk):
         self.generating_popup.title("Processing Video"); self.generating_popup.geometry("480x380")
         self.generating_popup.attributes("-topmost", True); self.generating_popup.protocol("WM_DELETE_WINDOW", lambda: None)
         self.generating_popup.grab_set(); self.generating_popup.configure(fg_color=COLOR_BACKGROUND_MAIN)
+        # Set popup icon
+        try:
+            if os.path.exists(self.APP_ICON_PATH):
+                self.generating_popup.iconbitmap(self.APP_ICON_PATH)
+            else:
+                print(f"Warning: App icon not found for generating video popup at {self.APP_ICON_PATH}")
+        except Exception as e: print(f"Error setting icon for generating video popup: {e}")
         progress_bar = customtkinter.CTkProgressBar(self.generating_popup, mode="indeterminate", progress_color=COLOR_PRIMARY_ACTION)
         progress_bar.pack(pady=(25,15), padx=50, fill="x"); progress_bar.start()
         customtkinter.CTkLabel(self.generating_popup, text="GENERATING VIDEO", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=10)
@@ -785,6 +810,13 @@ class App(customtkinter.CTk):
         self.all_voices_popup = customtkinter.CTkToplevel(self)
         self.all_voices_popup.title("Choose a voice"); self.all_voices_popup.geometry("720x600")
         self.all_voices_popup.attributes("-topmost", True); self.all_voices_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_voices_popup.grab_set()
+        # Set popup icon
+        try:
+            if os.path.exists(self.APP_ICON_PATH):
+                self.all_voices_popup.iconbitmap(self.APP_ICON_PATH)
+            else:
+                print(f"Warning: App icon not found for all voices popup at {self.APP_ICON_PATH}")
+        except Exception as e: print(f"Error setting icon for all voices popup: {e}")
         customtkinter.CTkLabel(self.all_voices_popup, text="Choose a voice", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=15)
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_voices_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
         scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
@@ -800,10 +832,20 @@ class App(customtkinter.CTk):
             else: # Si no está en desired_main_ui_voices_meta, intentar adivinar
                 img_file_guess = f"{tech_name.split('_')[-1] if '_' in tech_name else tech_name}.png"
 
+            # Determinar el texto para mostrar en el botón (friendly_short)
+            button_display_text = friendly_name # Por defecto, el nombre completo
+            if voice_meta_info and "friendly_short" in voice_meta_info:
+                button_display_text = voice_meta_info["friendly_short"]
+            else:
+                # Fallback si no está en desired_main_ui_voices_meta o no tiene friendly_short
+                # Intentar extraer una parte corta del nombre amigable completo
+                parts = friendly_name.split(" (")[0].split(" ")
+                if len(parts) > 1: button_display_text = parts[-1] # Tomar la última palabra antes del paréntesis
+
             avatar_img = None
             try: avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file_guess); os.path.exists(avatar_img_path) and (avatar_img := CTkImage(Image.open(avatar_img_path), size=(50,50)))
             except Exception as e: print(f"POPUP AVATAR DEBUG: Error loading {img_file_guess} for {friendly_name}: {e}")
-            voice_button = customtkinter.CTkButton(scrollable_frame, text=friendly_name, image=avatar_img, compound="top", command=lambda fn=friendly_name, tn=tech_name: self.select_voice_from_popup(fn, tn), fg_color=COLOR_BACKGROUND_CARD, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, height=90, text_color=COLOR_TEXT_PRIMARY, font=("Arial",11))
+            voice_button = customtkinter.CTkButton(scrollable_frame, text=button_display_text, image=avatar_img, compound="top", command=lambda fn=friendly_name, tn=tech_name: self.select_voice_from_popup(fn, tn), fg_color=COLOR_BACKGROUND_CARD, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, height=90, text_color=COLOR_TEXT_PRIMARY, font=("Arial",11))
             voice_button.grid(row=vr, column=vc, padx=5, pady=5, sticky="nsew"); vc += 1
             if vc >= VOICE_AVATAR_GRID_COLUMNS_POPUP: vc = 0; vr += 1
         for i in range(VOICE_AVATAR_GRID_COLUMNS_POPUP): scrollable_frame.grid_columnconfigure(i, weight=1)
@@ -859,6 +901,13 @@ class App(customtkinter.CTk):
         self.all_videos_main_popup = customtkinter.CTkToplevel(self)
         self.all_videos_main_popup.title("Choose a background video"); self.all_videos_main_popup.geometry("780x650")
         self.all_videos_main_popup.attributes("-topmost", True); self.all_videos_main_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_videos_main_popup.grab_set()
+        # Set popup icon
+        try:
+            if os.path.exists(self.APP_ICON_PATH):
+                self.all_videos_main_popup.iconbitmap(self.APP_ICON_PATH)
+            else:
+                print(f"Warning: App icon not found for all videos popup at {self.APP_ICON_PATH}")
+        except Exception as e: print(f"Error setting icon for all videos popup: {e}")
         customtkinter.CTkLabel(self.all_videos_main_popup, text="Choose a background video", font=("Arial",18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=15)
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_videos_main_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
         scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
