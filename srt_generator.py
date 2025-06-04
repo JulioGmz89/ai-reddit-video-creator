@@ -4,71 +4,58 @@ import os
 import traceback
 
 def _format_timestamp(seconds: float) -> str:
-    """Convierte segundos a formato de tiempo SRT HH:MM:SS,mmm."""
-    assert seconds >= 0, "El timestamp no puede ser negativo"
+    """Converts seconds to SRT time format HH:MM:SS,mmm."""
+    assert seconds >= 0, "Timestamp cannot be negative"
     milliseconds = round(seconds * 1000.0)
 
     hours = int(milliseconds // 3_600_000)
     milliseconds %= 3_600_000
     minutes = int(milliseconds // 60_000)
     milliseconds %= 60_000
-    seconds = int(milliseconds // 1_000)
+    seconds_val = int(milliseconds // 1_000) # Renamed to avoid conflict
     milliseconds %= 1_000
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+    return f"{hours:02d}:{minutes:02d}:{seconds_val:02d},{milliseconds:03d}"
 
 def create_srt_file(
     audio_path: str, 
     srt_path: str, 
     model_size: str = "base.en", 
     language: str = "en",
-    max_words_per_segment: int | None = None # Nuevo parámetro
+    max_words_per_segment: int | None = None
 ) -> bool:
     """
-    Genera un archivo SRT a partir de un archivo de audio usando Whisper,
-    con opción de limitar las palabras por segmento.
-
-    Args:
-        audio_path (str): Ruta al archivo de audio de entrada.
-        srt_path (str): Ruta donde se guardará el archivo .srt de salida.
-        model_size (str, optional): Tamaño del modelo Whisper. Defaults to "base.en".
-        language (str, optional): Idioma del audio. Defaults to "en".
-        max_words_per_segment (int | None, optional): Número máximo de palabras por 
-                                                     segmento de subtítulo. 
-                                                     Si es None, usa la segmentación por defecto de Whisper.
-                                                     Defaults to None.
-    Returns:
-        bool: True si el archivo SRT se creó exitosamente, False en caso contrario.
+    Generates an SRT file from an audio file using Whisper,
+    with an option to limit words per subtitle segment.
     """
     if not os.path.exists(audio_path):
-        print(f"Error SRT: El archivo de audio no existe en '{audio_path}'")
+        print(f"Error SRT: Audio file not found at '{audio_path}'")
         return False
 
     try:
-        print(f"SRT Gen - Cargando modelo Whisper '{model_size}'. Esto puede tardar la primera vez...")
+        # print(f"SRT Gen - Loading Whisper model '{model_size}'. This may take time on first run...") # Optional debug
         model = whisper.load_model(model_size) 
-        print("SRT Gen - Modelo Whisper cargado.")
+        # print("SRT Gen - Whisper model loaded.") # Optional debug
 
-        print(f"SRT Gen - Transcribiendo audio desde: {audio_path}. Esto puede tomar tiempo...")
+        # print(f"SRT Gen - Transcribing audio from: {audio_path}. This can take time...") # Optional debug
         
-        # Necesitamos word_timestamps=True si vamos a limitar las palabras por segmento
         should_get_word_timestamps = isinstance(max_words_per_segment, int) and max_words_per_segment > 0
         
         result = model.transcribe(
             audio_path, 
             language=language, 
-            verbose=False, # Cambiado a False para una salida más limpia, pon True si quieres ver el progreso detallado
+            verbose=False, # Keep False for cleaner output, True for detailed progress
             word_timestamps=should_get_word_timestamps 
         )
-        print("SRT Gen - Transcripción completada.")
+        # print("SRT Gen - Transcription completed.") # Optional debug
 
         srt_segment_index = 1
         with open(srt_path, "w", encoding="utf-8") as f:
             if should_get_word_timestamps:
-                print(f"SRT Gen - Aplicando límite de {max_words_per_segment} palabras por segmento de subtítulo.")
-                for segment_from_whisper in result["segments"]: # Iterar sobre los segmentos originales de Whisper
-                    if 'words' not in segment_from_whisper:
-                        print("Advertencia SRT: No se encontraron timestamps de palabras en un segmento, usando el segmento completo.")
-                        # Fallback: usar el segmento original si no hay 'words' (no debería pasar si word_timestamps=True)
+                # print(f"SRT Gen - Applying limit of {max_words_per_segment} words per subtitle segment.") # Optional debug
+                for segment_from_whisper in result["segments"]:
+                    if 'words' not in segment_from_whisper or not segment_from_whisper['words']: # Check if 'words' exists and is not empty
+                        # print("Warning SRT: No word timestamps found in a segment or segment is empty, using original segment.") # Useful debug
+                        # Fallback: use the original segment if no 'words'
                         start_time = _format_timestamp(segment_from_whisper["start"])
                         end_time = _format_timestamp(segment_from_whisper["end"])
                         text = segment_from_whisper["text"].strip()
@@ -80,102 +67,107 @@ def create_srt_file(
                         continue
 
                     words_in_segment = segment_from_whisper['words']
-                    current_chunk_words = [] # Lista para guardar la información de las palabras del chunk actual
+                    current_chunk_words_info = [] # Stores word dicts {text, start, end}
 
                     for i, word_info in enumerate(words_in_segment):
-                        current_chunk_words.append(word_info)
+                        current_chunk_words_info.append(word_info)
                         
-                        # Escribir el chunk si hemos alcanzado max_words_per_segment
-                        # o si es la última palabra del segmento de Whisper
-                        if len(current_chunk_words) == max_words_per_segment or i == len(words_in_segment) - 1:
-                            if not current_chunk_words: # Si el chunk está vacío (no debería pasar)
+                        if len(current_chunk_words_info) == max_words_per_segment or i == len(words_in_segment) - 1:
+                            if not current_chunk_words_info: 
                                 continue
 
-                            chunk_text = " ".join([word_data['word'] for word_data in current_chunk_words]).strip()
-                            chunk_start_time = current_chunk_words[0]['start']
-                            chunk_end_time = current_chunk_words[-1]['end']
+                            chunk_text = " ".join([word_data['word'] for word_data in current_chunk_words_info]).strip()
+                            # Ensure 'start' and 'end' keys exist for all word_data, Whisper should provide them
+                            chunk_start_time = current_chunk_words_info[0]['start']
+                            chunk_end_time = current_chunk_words_info[-1]['end']
                             
-                            if chunk_text: # Solo escribir si hay texto
+                            if chunk_text: 
                                 f.write(f"{srt_segment_index}\n")
                                 f.write(f"{_format_timestamp(chunk_start_time)} --> {_format_timestamp(chunk_end_time)}\n")
                                 f.write(f"{chunk_text}\n\n")
                                 srt_segment_index += 1
                             
-                            current_chunk_words = [] # Resetear para el siguiente chunk
-            else: # Comportamiento original: un SRT por segmento de Whisper
+                            current_chunk_words_info = [] 
+            else: # Original behavior: one SRT entry per Whisper segment
                 for segment in result["segments"]:
                     start_time = _format_timestamp(segment["start"])
                     end_time = _format_timestamp(segment["end"])
                     text = segment["text"].strip()
-                    if text:
+                    if text: # Only write if there is text
                         f.write(f"{srt_segment_index}\n")
                         f.write(f"{start_time} --> {end_time}\n")
                         f.write(f"{text}\n\n")
                         srt_segment_index += 1
         
-        print(f"SRT Gen - Archivo de subtítulos guardado en: {srt_path}")
+        # print(f"SRT Gen - Subtitles file saved to: {srt_path}") # Optional debug
         return True
 
-    except FileNotFoundError:
-        print("Error SRT: ffmpeg no encontrado. Asegúrate de que ffmpeg esté instalado y en el PATH de tu sistema.")
+    except FileNotFoundError: # Specifically for ffmpeg
+        print("Error SRT: ffmpeg not found. Ensure ffmpeg is installed and in your system's PATH.")
         traceback.print_exc()
         return False
     except Exception as e:
-        print(f"Error SRT - Ocurrió un error durante la generación de subtítulos: {e}")
+        print(f"Error SRT - An error occurred during subtitle generation: {e}")
         traceback.print_exc()
         return False
 
 if __name__ == '__main__':
-    print("--- Iniciando prueba del módulo SRT Generator ---")
+    print("--- Starting SRT Generator module test ---")
     
-    test_audio_input_path = "historia_narrada.wav" 
+    # This test requires a .wav file named "test_audio.wav" in the same directory
+    # or you can modify the path.
+    # A dummy WAV is created if "test_audio.wav" is not found.
+    test_audio_input_path = "test_audio.wav" 
     
-    # Crear un dummy WAV si no existe, para que el script no falle al probar
     if not os.path.exists(test_audio_input_path):
-        print(f"ADVERTENCIA: '{test_audio_input_path}' no existe. Creando dummy WAV.")
+        print(f"WARNING: '{test_audio_input_path}' not found. Creating a dummy WAV for testing.")
         try:
             import wave, numpy as np
-            sr, dur, nchan, sw = 24000, 2, 1, 2; freq = 440
-            nfr = int(dur*sr); t = np.linspace(0,dur,nfr,endpoint=False)
-            ad = (np.sin(2*np.pi*freq*t)*(2**(8*sw-1)-1)).astype(np.int16)
-            with wave.open(test_audio_input_path,'w') as wf:
-                wf.setnchannels(nchan);wf.setsampwidth(sw);wf.setframerate(sr)
-                wf.writeframes(ad.tobytes())
-            print(f"Audio dummy creado: {test_audio_input_path}")
-        except Exception as e_dummy: print(f"No se pudo crear audio dummy: {e_dummy}")
+            sample_rate, duration_s, num_channels, sample_width_bytes = 24000, 3, 1, 2
+            frequency_hz = 440
+            num_frames = int(duration_s * sample_rate)
+            t = np.linspace(0, duration_s, num_frames, endpoint=False)
+            audio_data_np = (np.sin(2 * np.pi * frequency_hz * t) * (2**(8 * sample_width_bytes - 1) - 1)).astype(np.int16)
+            with wave.open(test_audio_input_path, 'w') as wf:
+                wf.setnchannels(num_channels)
+                wf.setsampwidth(sample_width_bytes)
+                wf.setframerate(sample_rate)
+                wf.writeframes(audio_data_np.tobytes())
+            print(f"Dummy audio file created: {test_audio_input_path}")
+        except Exception as e_dummy: 
+            print(f"Could not create dummy audio file: {e_dummy}. Test may fail.")
 
     if os.path.exists(test_audio_input_path):
-        print(f"Usando audio de prueba: {test_audio_input_path}")
+        print(f"Using test audio: {test_audio_input_path}")
         
-        # Prueba con el límite de palabras por segmento
-        max_words = 3
-        output_srt_custom = f"subtitulos_max_{max_words}_palabras.srt"
-        print(f"\nProbando con max_words_per_segment = {max_words}")
+        # Test with word limit per segment
+        max_words_test = 3
+        output_srt_custom_path = f"test_subtitles_max_{max_words_test}_words.srt"
+        print(f"\nTesting with max_words_per_segment = {max_words_test}")
         success_custom = create_srt_file(
             test_audio_input_path, 
-            output_srt_custom, 
-            model_size="base.en", 
+            output_srt_custom_path, 
+            model_size="tiny.en", # Using a smaller model for faster testing
             language="en",
-            max_words_per_segment=max_words # Aplicando el límite
+            max_words_per_segment=max_words_test
         )
         if success_custom:
-            print(f"Prueba con max_words={max_words} completada. Archivo: {output_srt_custom}")
+            print(f"Test with max_words={max_words_test} completed. Output: {output_srt_custom_path}")
         else:
-            print(f"Fallo prueba con max_words={max_words}.")
+            print(f"Test failed for max_words={max_words_test}.")
 
-        # Prueba opcional con la segmentación por defecto de Whisper
-        # output_srt_default = "subtitulos_default_segmentos.srt"
-        # print("\nProbando con segmentación por defecto de Whisper...")
-        # success_default = create_srt_file(
-        #     test_audio_input_path, 
-        #     output_srt_default, 
-        #     model_size="base.en", 
-        #     language="en"
-        #     # No se pasa max_words_per_segment para usar el default
-        # )
-        # if success_default:
-        #     print(f"Prueba con segmentación por defecto completada. Archivo: {output_srt_default}")
-        # else:
-        #     print("Fallo prueba con segmentación por defecto.")
+        # Test with Whisper's default segmentation
+        output_srt_default_path = "test_subtitles_default_segments.srt"
+        print("\nTesting with Whisper's default segmentation...")
+        success_default = create_srt_file(
+            test_audio_input_path, 
+            output_srt_default_path, 
+            model_size="tiny.en", 
+            language="en"
+        )
+        if success_default:
+            print(f"Test with default segmentation completed. Output: {output_srt_default_path}")
+        else:
+            print("Test failed for default segmentation.")
     else:
-        print(f"\nError Crítico: El archivo de audio de prueba '{test_audio_input_path}' NO EXISTE y no se pudo crear un dummy.")
+        print(f"\nCRITICAL Error: Test audio file '{test_audio_input_path}' does NOT EXIST and dummy creation failed.")
