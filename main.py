@@ -1,7 +1,7 @@
 # main.py
 import customtkinter
-from customtkinter import filedialog, CTkImage
-from PIL import Image
+from customtkinter import filedialog, CTkImage # CTkImage ya está aquí
+from PIL import Image, ImageTk # Asegúrate de que ImageTk esté importado aquí
 import os
 import traceback
 import threading
@@ -69,12 +69,19 @@ class App(customtkinter.CTk):
         # Set application icon
         try:
             if os.path.exists(self.APP_ICON_PATH):
+                # Para las ventanas emergentes, aún necesitamos el PhotoImage
+                self._pil_app_icon = Image.open(self.APP_ICON_PATH) # Mantener una referencia a la imagen PIL
+                self.app_icon_photoimage = ImageTk.PhotoImage(self._pil_app_icon) # Usar la imagen PIL referenciada
+                
+                # Para la ventana principal, intentar iconbitmap directamente.
+                # Esto podría ser más estable en algunas configuraciones de Windows si PhotoImage es problemático.
                 self.iconbitmap(self.APP_ICON_PATH)
-                print(f"Application icon set to {self.APP_ICON_PATH}")
+                print(f"Application icon set for main window using iconbitmap: {self.APP_ICON_PATH}")
+                # Las ventanas emergentes usarán self.app_icon_photoimage mediante iconphoto(False, ...)
             else:
                 print(f"Warning: Application icon not found at {self.APP_ICON_PATH}")
         except Exception as e:
-            print(f"Error setting application icon: {e}")
+            print(f"Error setting application icon: {e}"); traceback.print_exc()
 
         # Paths for the new Generate Video button images
         self.GENERATE_ICON_DEFAULT_PATH = os.path.join(self.BUTTONS_ASSETS_PATH, "generatevideo_default.png")
@@ -128,6 +135,13 @@ class App(customtkinter.CTk):
         self.task_queue = queue.Queue()
         # Using lambda to ensure 'self' context is correct for check_queue_for_updates
         self.after(100, lambda: self.check_queue_for_updates())
+        
+        # Add debug check for icon reference periodically
+        def check_icon_reference():
+            if not hasattr(self, 'app_icon_photoimage') or self.app_icon_photoimage is None:
+                print("DEBUG: app_icon_photoimage is missing or None!")
+            self.after(5000, check_icon_reference) # Check every 5 seconds
+        check_icon_reference() # Start the periodic check
 
 
         file_manager.ensure_directories_exist()
@@ -373,8 +387,8 @@ class App(customtkinter.CTk):
         self.ai_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.ai_popup.grab_set()
         # Set popup icon
         try:
-            if os.path.exists(self.APP_ICON_PATH):
-                self.ai_popup.iconbitmap(self.APP_ICON_PATH)
+            if hasattr(self, 'app_icon_photoimage') and self.app_icon_photoimage:
+                self.ai_popup.iconphoto(False, self.app_icon_photoimage)
             else:
                 print(f"Warning: App icon not found for AI story popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for AI story popup: {e}")
@@ -671,8 +685,8 @@ class App(customtkinter.CTk):
         self.generating_popup.grab_set(); self.generating_popup.configure(fg_color=COLOR_BACKGROUND_MAIN)
         # Set popup icon
         try:
-            if os.path.exists(self.APP_ICON_PATH):
-                self.generating_popup.iconbitmap(self.APP_ICON_PATH)
+            if hasattr(self, 'app_icon_photoimage') and self.app_icon_photoimage:
+                self.generating_popup.iconphoto(False, self.app_icon_photoimage)
             else:
                 print(f"Warning: App icon not found for generating video popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for generating video popup: {e}")
@@ -812,8 +826,8 @@ class App(customtkinter.CTk):
         self.all_voices_popup.attributes("-topmost", True); self.all_voices_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_voices_popup.grab_set()
         # Set popup icon
         try:
-            if os.path.exists(self.APP_ICON_PATH):
-                self.all_voices_popup.iconbitmap(self.APP_ICON_PATH)
+            if hasattr(self, 'app_icon_photoimage') and self.app_icon_photoimage:
+                self.all_voices_popup.iconphoto(False, self.app_icon_photoimage)
             else:
                 print(f"Warning: App icon not found for all voices popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for all voices popup: {e}")
@@ -903,8 +917,8 @@ class App(customtkinter.CTk):
         self.all_videos_main_popup.attributes("-topmost", True); self.all_videos_main_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_videos_main_popup.grab_set()
         # Set popup icon
         try:
-            if os.path.exists(self.APP_ICON_PATH):
-                self.all_videos_main_popup.iconbitmap(self.APP_ICON_PATH)
+            if hasattr(self, 'app_icon_photoimage') and self.app_icon_photoimage:
+                self.all_videos_main_popup.iconphoto(False, self.app_icon_photoimage)
             else:
                 print(f"Warning: App icon not found for all videos popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for all videos popup: {e}")
