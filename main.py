@@ -194,7 +194,7 @@ class App(customtkinter.CTk):
         reddit_url_frame.grid(row=0, column=0, sticky="ew", pady=(0,5)); reddit_url_frame.grid_columnconfigure(0, weight=1)
         self.reddit_url_entry = customtkinter.CTkEntry(reddit_url_frame, placeholder_text="Reddit URL", fg_color=COLOR_BACKGROUND_CARD, text_color=COLOR_TEXT_PRIMARY, height=35, corner_radius=CORNER_RADIUS_INPUT, border_color=COLOR_BACKGROUND_CARD)
         self.reddit_url_entry.grid(row=0, column=0, padx=(0,10), pady=5, sticky="ew")
-        self.reddit_fetch_button = customtkinter.CTkButton(reddit_url_frame, text="SEARCH", command=self.fetch_reddit_post_threaded, fg_color=COLOR_PRIMARY_ACTION, hover_color=COLOR_PRIMARY_ACTION_HOVER, text_color=COLOR_TEXT_PRIMARY, height=35, width=100, corner_radius=CORNER_RADIUS_BUTTON, font=("Arial", 13, "bold"))
+        self.reddit_fetch_button = customtkinter.CTkButton(reddit_url_frame, text="Search", command=self.fetch_reddit_post_threaded, fg_color=COLOR_PRIMARY_ACTION, hover_color=COLOR_PRIMARY_ACTION_HOVER, text_color=COLOR_TEXT_PRIMARY, height=35, width=100, corner_radius=CORNER_RADIUS_BUTTON, font=("Arial", 13, "bold"))
         self.reddit_fetch_button.grid(row=0, column=1, pady=5)
         separator_label = customtkinter.CTkLabel(self.input_method_frame, text=" OR ", text_color=COLOR_SEPARATOR_TEXT, font=("Arial", 12))
         separator_label.grid(row=1, column=0, pady=8, sticky="ew")
