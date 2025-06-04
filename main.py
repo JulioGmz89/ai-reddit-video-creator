@@ -128,6 +128,397 @@ class App(customtkinter.CTk):
         self.subtitle_font_color_hex = "#FFFF00"
         self.subtitle_stroke_color_hex = "#000000"
 
+        # Definiciones de fuentes:
+        # Clave: Nombre de familia para la UI
+        # Valor: Diccionario con:
+        #   "styles": {UI_Style_Name: MoviePy_Font_Name, ...}
+        #   "source": "moviepy_list" (confirmada por MoviePy) o "user_request_convention" (no confirmada)
+        self.font_definitions = {
+            # Fuentes confirmadas por MoviePy (basado en la lista del usuario)
+            "Agency FB": {
+                "styles": {"Regular": "Agency-FB", "Bold": "Agency-FB-Bold"},
+                "source": "moviepy_list"
+            },
+            "Algerian": {
+                "styles": {"Regular": "Algerian"}, "source": "moviepy_list"
+            },
+            "Arial": {
+                "styles": {
+                    "Regular": "Arial", "Black": "Arial-Black", "Bold": "Arial-Bold",
+                    "Bold Italic": "Arial-Bold-Italic", "Italic": "Arial-Italic"
+                }, "source": "moviepy_list"
+            },
+            "Arial Narrow": {
+                "styles": {
+                    "Regular": "Arial-Narrow", "Bold": "Arial-Narrow-Bold",
+                    "Bold Italic": "Arial-Narrow-Bold-Italic", "Italic": "Arial-Narrow-Italic"
+                }, "source": "moviepy_list"
+            },
+            "Arial Rounded MT Bold": { # Considerado familia única ya que no hay "Arial-Rounded-MT" regular en la lista
+                "styles": {"Regular": "Arial-Rounded-MT-Bold"}, "source": "moviepy_list"
+            },
+            "Bahnschrift": {
+                "styles": {"Regular": "Bahnschrift"}, "source": "moviepy_list"
+            },
+            "Baskerville Old Face": {
+                "styles": {"Regular": "Baskerville-Old-Face"}, "source": "moviepy_list"
+            },
+            "Bauhaus 93": {
+                "styles": {"Regular": "Bauhaus-93"}, "source": "moviepy_list"
+            },
+            "Bell MT": {
+                "styles": {"Regular": "Bell-MT", "Bold": "Bell-MT-Bold", "Italic": "Bell-MT-Italic"},
+                "source": "moviepy_list"
+            },
+            "Berlin Sans FB": {
+                "styles": {"Regular": "Berlin-Sans-FB", "Bold": "Berlin-Sans-FB-Bold", "Demi Bold": "Berlin-Sans-FB-Demi-Bold"},
+                "source": "moviepy_list"
+            },
+            "Bernard MT Condensed": {
+                "styles": {"Regular": "Bernard-MT-Condensed"}, "source": "moviepy_list"
+            },
+            "Blackadder ITC": {
+                "styles": {"Regular": "Blackadder-ITC"}, "source": "moviepy_list"
+            },
+            "Bodoni MT": {
+                "styles": {
+                    "Regular": "Bodoni-MT", "Black": "Bodoni-MT-Black", "Black Italic": "Bodoni-MT-Black-Italic",
+                    "Bold": "Bodoni-MT-Bold", "Bold Italic": "Bodoni-MT-Bold-Italic", "Italic": "Bodoni-MT-Italic"
+                }, "source": "moviepy_list"
+            },
+            "Bodoni MT Condensed": {
+                "styles": {
+                    "Regular": "Bodoni-MT-Condensed", "Bold": "Bodoni-MT-Condensed-Bold",
+                    "Bold Italic": "Bodoni-MT-Condensed-Bold-Italic", "Italic": "Bodoni-MT-Condensed-Italic"
+                }, "source": "moviepy_list"
+            },
+            "Bodoni MT Poster Compressed": {
+                "styles": {"Regular": "Bodoni-MT-Poster-Compressed"}, "source": "moviepy_list"
+            },
+            "Book Antiqua": {
+                "styles": {"Regular": "Book-Antiqua", "Bold": "Book-Antiqua-Bold", "Bold Italic": "Book-Antiqua-Bold-Italic", "Italic": "Book-Antiqua-Italic"},
+                "source": "moviepy_list"
+            },
+            "Bookman Old Style": {
+                "styles": {"Regular": "Bookman-Old-Style", "Bold": "Bookman-Old-Style-Bold", "Bold Italic": "Bookman-Old-Style-Bold-Italic", "Italic": "Bookman-Old-Style-Italic"},
+                "source": "moviepy_list"
+            },
+            "Bookshelf Symbol 7": {
+                "styles": {"Regular": "Bookshelf-Symbol-7"}, "source": "moviepy_list"
+            },
+            "Bradley Hand ITC": {
+                "styles": {"Regular": "Bradley-Hand-ITC"}, "source": "moviepy_list"
+            },
+            "Britannic Bold": {
+                "styles": {"Regular": "Britannic-Bold"}, "source": "moviepy_list"
+            },
+            "Broadway": {
+                "styles": {"Regular": "Broadway"}, "source": "moviepy_list"
+            },
+            "Brush Script MT Italic": { # Considerado familia única
+                "styles": {"Regular": "Brush-Script-MT-Italic"}, "source": "moviepy_list"
+            },
+            "Calibri": {
+                "styles": {"Regular": "Calibri", "Bold": "Calibri-Bold", "Bold Italic": "Calibri-Bold-Italic", "Italic": "Calibri-Italic", "Light": "Calibri-Light", "Light Italic": "Calibri-Light-Italic"},
+                "source": "moviepy_list"
+            },
+            "Californian FB": {
+                "styles": {"Regular": "Californian-FB", "Bold": "Californian-FB-Bold", "Italic": "Californian-FB-Italic"},
+                "source": "moviepy_list"
+            },
+            "Calisto MT": {
+                "styles": {"Regular": "Calisto-MT", "Bold": "Calisto-MT-Bold", "Bold Italic": "Calisto-MT-Bold-Italic", "Italic": "Calisto-MT-Italic"},
+                "source": "moviepy_list"
+            },
+            "Cambria & Cambria Math": { # Nombre largo como familia
+                "styles": {"Regular": "Cambria-&-Cambria-Math"}, "source": "moviepy_list"
+            },
+            "Cambria": {
+                "styles": {"Regular": "Cambria", "Bold": "Cambria-Bold", "Bold Italic": "Cambria-Bold-Italic", "Italic": "Cambria-Italic"},
+                "source": "moviepy_list"
+            },
+            "Candara": {
+                "styles": {"Regular": "Candara", "Bold": "Candara-Bold", "Bold Italic": "Candara-Bold-Italic", "Italic": "Candara-Italic", "Light": "Candara-Light", "Light Italic": "Candara-Light-Italic"},
+                "source": "moviepy_list"
+            },
+            "Cascadia Code Regular": {
+                "styles": {"Regular": "Cascadia-Code-Regular"}, "source": "moviepy_list"
+            },
+            "Cascadia Mono Regular": {
+                "styles": {"Regular": "Cascadia-Mono-Regular"}, "source": "moviepy_list"
+            },
+            "Castellar": {"styles": {"Regular": "Castellar"}, "source": "moviepy_list"},
+            "Centaur": {"styles": {"Regular": "Centaur"}, "source": "moviepy_list"},
+            "Century": {"styles": {"Regular": "Century"}, "source": "moviepy_list"},
+            "Century Gothic": {
+                "styles": {"Regular": "Century-Gothic", "Bold": "Century-Gothic-Bold", "Bold Italic": "Century-Gothic-Bold-Italic", "Italic": "Century-Gothic-Italic"},
+                "source": "moviepy_list"
+            },
+            "Century Schoolbook": {
+                "styles": {"Regular": "Century-Schoolbook", "Bold": "Century-Schoolbook-Bold", "Bold Italic": "Century-Schoolbook-Bold-Italic", "Italic": "Century-Schoolbook-Italic"},
+                "source": "moviepy_list"
+            },
+            "Chiller": {"styles": {"Regular": "Chiller"}, "source": "moviepy_list"},
+            "Colonna MT": {"styles": {"Regular": "Colonna-MT"}, "source": "moviepy_list"},
+            "Comic Sans MS": {
+                "styles": {"Regular": "Comic-Sans-MS", "Bold": "Comic-Sans-MS-Bold", "Bold Italic": "Comic-Sans-MS-Bold-Italic", "Italic": "Comic-Sans-MS-Italic"},
+                "source": "moviepy_list"
+            },
+            "Consolas": {
+                "styles": {"Regular": "Consolas", "Bold": "Consolas-Bold", "Bold Italic": "Consolas-Bold-Italic", "Italic": "Consolas-Italic"},
+                "source": "moviepy_list"
+            },
+            "Constantia": {
+                "styles": {"Regular": "Constantia", "Bold": "Constantia-Bold", "Bold Italic": "Constantia-Bold-Italic", "Italic": "Constantia-Italic"},
+                "source": "moviepy_list"
+            },
+            "Cooper Black": {"styles": {"Regular": "Cooper-Black"}, "source": "moviepy_list"},
+            "Copperplate Gothic Bold": {"styles": {"Regular": "Copperplate-Gothic-Bold"}, "source": "moviepy_list"}, # Asumiendo familia única
+            "Copperplate Gothic Light": {"styles": {"Regular": "Copperplate-Gothic-Light"}, "source": "moviepy_list"}, # Asumiendo familia única
+            "Corbel": {
+                "styles": {"Regular": "Corbel", "Bold": "Corbel-Bold", "Bold Italic": "Corbel-Bold-Italic", "Italic": "Corbel-Italic", "Light": "Corbel-Light", "Light Italic": "Corbel-Light-Italic"},
+                "source": "moviepy_list"
+            },
+            "Courier New": { # Ya estaba, confirmado
+                "styles": {"Regular": "Courier-New", "Bold": "Courier-New-Bold", "Bold Italic": "Courier-New-Bold-Italic", "Italic": "Courier-New-Italic"},
+                "source": "moviepy_list"
+            },
+            "Curlz MT": {"styles": {"Regular": "Curlz-MT"}, "source": "moviepy_list"},
+            "Dubai": { # MoviePy lista "Dubai-Bold", "Dubai-Light", "Dubai-Medium", "Dubai-Regular"
+                "styles": {"Bold": "Dubai-Bold", "Light": "Dubai-Light", "Medium": "Dubai-Medium", "Regular": "Dubai-Regular"},
+                "source": "moviepy_list"
+            },
+            "Ebrima": {
+                "styles": {"Regular": "Ebrima", "Bold": "Ebrima-Bold"}, "source": "moviepy_list"
+            },
+            "Edwardian Script ITC": {"styles": {"Regular": "Edwardian-Script-ITC"}, "source": "moviepy_list"},
+            "Elephant": {
+                "styles": {"Regular": "Elephant", "Italic": "Elephant-Italic"}, "source": "moviepy_list"
+            },
+            "Engravers MT": {"styles": {"Regular": "Engravers-MT"}, "source": "moviepy_list"},
+            "Eras ITC": { # Agrupando Eras. MoviePy: Eras-Bold-ITC, Eras-Demi-ITC, Eras-Light-ITC, Eras-Medium-ITC
+                "styles": {"Bold": "Eras-Bold-ITC", "Demi": "Eras-Demi-ITC", "Light": "Eras-Light-ITC", "Medium": "Eras-Medium-ITC"},
+                "source": "moviepy_list"
+            },
+            "Felix Titling": {"styles": {"Regular": "Felix-Titling"}, "source": "moviepy_list"},
+            "Footlight MT Light": {"styles": {"Regular": "Footlight-MT-Light"}, "source": "moviepy_list"},
+            "Forte": {"styles": {"Regular": "Forte"}, "source": "moviepy_list"},
+            "Franklin Gothic Book": { # Franklin Gothic es complejo. Agrupando por sub-familias.
+                "styles": {"Regular": "Franklin-Gothic-Book", "Italic": "Franklin-Gothic-Book-Italic"}, "source": "moviepy_list"
+            },
+            "Franklin Gothic Demi": {
+                "styles": {"Regular": "Franklin-Gothic-Demi", "Cond": "Franklin-Gothic-Demi-Cond", "Italic": "Franklin-Gothic-Demi-Italic"}, "source": "moviepy_list"
+            },
+            "Franklin Gothic Heavy": {
+                "styles": {"Regular": "Franklin-Gothic-Heavy", "Italic": "Franklin-Gothic-Heavy-Italic"}, "source": "moviepy_list"
+            },
+            "Franklin Gothic Medium": {
+                "styles": {"Regular": "Franklin-Gothic-Medium", "Cond": "Franklin-Gothic-Medium-Cond", "Italic": "Franklin-Gothic-Medium-Italic"}, "source": "moviepy_list"
+            },
+            "Freestyle Script": {"styles": {"Regular": "Freestyle-Script"}, "source": "moviepy_list"},
+            "French Script MT": {"styles": {"Regular": "French-Script-MT"}, "source": "moviepy_list"},
+            "Gabriola": {"styles": {"Regular": "Gabriola"}, "source": "moviepy_list"},
+            "Gadugi": {
+                "styles": {"Regular": "Gadugi", "Bold": "Gadugi-Bold"}, "source": "moviepy_list"
+            },
+            "Garamond": {
+                "styles": {"Regular": "Garamond", "Bold": "Garamond-Bold", "Italic": "Garamond-Italic"}, "source": "moviepy_list"
+            },
+            "Georgia": {
+                "styles": {"Regular": "Georgia", "Bold": "Georgia-Bold", "Bold Italic": "Georgia-Bold-Italic", "Italic": "Georgia-Italic"}, "source": "moviepy_list"
+            },
+            "Gigi": {"styles": {"Regular": "Gigi"}, "source": "moviepy_list"},
+            "Gill Sans MT": {
+                "styles": {"Regular": "Gill-Sans-MT", "Bold": "Gill-Sans-MT-Bold", "Bold Italic": "Gill-Sans-MT-Bold-Italic", "Condensed": "Gill-Sans-MT-Condensed", "Italic": "Gill-Sans-MT-Italic"},
+                "source": "moviepy_list" # Ext-Condensed-Bold y Ultra-Bold como familias separadas
+            },
+            "Gill Sans MT Ext Condensed Bold": {"styles": {"Regular": "Gill-Sans-MT-Ext-Condensed-Bold"}, "source": "moviepy_list"},
+            "Gill Sans Ultra Bold": {"styles": {"Regular": "Gill-Sans-Ultra-Bold"}, "source": "moviepy_list"},
+            "Gill Sans Ultra Bold Condensed": {"styles": {"Regular": "Gill-Sans-Ultra-Bold-Condensed"}, "source": "moviepy_list"},
+            "Gloucester MT Extra Condensed": {"styles": {"Regular": "Gloucester-MT-Extra-Condensed"}, "source": "moviepy_list"},
+            "Goudy Old Style": {
+                "styles": {"Regular": "Goudy-Old-Style", "Bold": "Goudy-Old-Style-Bold", "Italic": "Goudy-Old-Style-Italic"}, "source": "moviepy_list"
+            },
+            "Goudy Stout": {"styles": {"Regular": "Goudy-Stout"}, "source": "moviepy_list"},
+            "Haettenschweiler": {"styles": {"Regular": "Haettenschweiler"}, "source": "moviepy_list"},
+            "Harlow Solid Italic": {"styles": {"Regular": "Harlow-Solid-Italic"}, "source": "moviepy_list"},
+            "Harrington": {"styles": {"Regular": "Harrington"}, "source": "moviepy_list"},
+            "High Tower Text": {
+                "styles": {"Regular": "High-Tower-Text", "Italic": "High-Tower-Text-Italic"}, "source": "moviepy_list"
+            },
+            "Holo MDL2 Assets": {"styles": {"Regular": "Holo-MDL2-Assets"}, "source": "moviepy_list"},
+            "Impact": {
+                "styles": {"Regular": "Impact"}, "source": "moviepy_list"
+            },
+             "Imprint MT Shadow": {"styles": {"Regular": "Imprint-MT-Shadow"}, "source": "moviepy_list"},
+            "Informal Roman": {"styles": {"Regular": "Informal-Roman"}, "source": "moviepy_list"},
+            "Ink Free": {"styles": {"Regular": "Ink-Free"}, "source": "moviepy_list"},
+            "Javanese Text": {"styles": {"Regular": "Javanese-Text"}, "source": "moviepy_list"},
+            "Jokerman": {"styles": {"Regular": "Jokerman"}, "source": "moviepy_list"},
+            "Juice ITC": {"styles": {"Regular": "Juice-ITC"}, "source": "moviepy_list"},
+            "Kristen ITC": {"styles": {"Regular": "Kristen-ITC"}, "source": "moviepy_list"},
+            "Kunstler Script": {"styles": {"Regular": "Kunstler-Script"}, "source": "moviepy_list"},
+            "Leelawadee UI": {
+                "styles": {"Regular": "Leelawadee-UI", "Bold": "Leelawadee-UI-Bold", "Semilight": "Leelawadee-UI-Semilight"}, "source": "moviepy_list"
+            },
+            "Lucida Bright": {"styles": {"Regular": "Lucida-Bright"}, "source": "moviepy_list"}, # No hay variantes en la lista
+            "Lucida Calligraphy Italic": {"styles": {"Regular": "Lucida-Calligraphy-Italic"}, "source": "moviepy_list"},
+            "Lucida Console": {"styles": {"Regular": "Lucida-Console"}, "source": "moviepy_list"},
+            "Lucida Fax": { # MoviePy: Lucida-Fax-Demibold, Lucida-Fax-Demibold-Italic, Lucida-Fax-Italic, Lucida-Fax-Regular
+                "styles": {"Demibold": "Lucida-Fax-Demibold", "Demibold Italic": "Lucida-Fax-Demibold-Italic", "Italic": "Lucida-Fax-Italic", "Regular": "Lucida-Fax-Regular"},
+                "source": "moviepy_list"
+            },
+            "Lucida Handwriting Italic": {"styles": {"Regular": "Lucida-Handwriting-Italic"}, "source": "moviepy_list"},
+            "Lucida Sans": { # MoviePy: Lucida-Sans-Demibold-Italic, Lucida-Sans-Demibold-Roman, Lucida-Sans-Italic
+                "styles": {"Demibold Italic": "Lucida-Sans-Demibold-Italic", "Demibold Roman": "Lucida-Sans-Demibold-Roman", "Italic": "Lucida-Sans-Italic"},
+                "source": "moviepy_list" # Asumiendo que "Lucida-Sans" (regular) no está, o se agrupa aquí.
+            },
+            "Lucida Sans Typewriter": { # MoviePy: Lucida-Sans-Typewriter-Bold-Oblique, Lucida-Sans-Typewriter-Oblique
+                "styles": {"Bold Oblique": "Lucida-Sans-Typewriter-Bold-Oblique", "Oblique": "Lucida-Sans-Typewriter-Oblique"},
+                "source": "moviepy_list"
+            },
+            "Lucida Sans Unicode": {"styles": {"Regular": "Lucida-Sans-Unicode"}, "source": "moviepy_list"},
+            "MS Gothic & MS UI Gothic & MS PGothic": {"styles": {"Regular": "MS-Gothic-&-MS-UI-Gothic-&-MS-PGothic"}, "source": "moviepy_list"},
+            "MS Outlook": {"styles": {"Regular": "MS-Outlook"}, "source": "moviepy_list"},
+            "MS Reference Sans Serif": {"styles": {"Regular": "MS-Reference-Sans-Serif"}, "source": "moviepy_list"},
+            "MS Reference Specialty": {"styles": {"Regular": "MS-Reference-Specialty"}, "source": "moviepy_list"},
+            "MT Extra": {"styles": {"Regular": "MT-Extra"}, "source": "moviepy_list"},
+            "MV Boli": {"styles": {"Regular": "MV-Boli"}, "source": "moviepy_list"},
+            "Magneto Bold": {"styles": {"Regular": "Magneto-Bold"}, "source": "moviepy_list"},
+            "Maiandra GD": {"styles": {"Regular": "Maiandra-GD"}, "source": "moviepy_list"},
+            "Malgun Gothic": { # MoviePy: Malgun-Gothic, Malgun-Gothic-Bold, Malgun-Gothic-SemiLight
+                "styles": {"Regular": "Malgun-Gothic", "Bold": "Malgun-Gothic-Bold", "Semilight": "Malgun-Gothic-SemiLight"},
+                "source": "moviepy_list"
+            },
+            "Matura MT Script Capitals": {"styles": {"Regular": "Matura-MT-Script-Capitals"}, "source": "moviepy_list"},
+            "Microsoft Himalaya": {"styles": {"Regular": "Microsoft-Himalaya"}, "source": "moviepy_list"},
+            "Microsoft JhengHei & Microsoft JhengHei UI": {"styles": {"Regular": "Microsoft-JhengHei-&-Microsoft-JhengHei-UI"}, "source": "moviepy_list"},
+            "Microsoft JhengHei Bold & Microsoft JhengHei UI Bold": {"styles": {"Regular": "Microsoft-JhengHei-Bold-&-Microsoft-JhengHei-UI-Bold"}, "source": "moviepy_list"},
+            "Microsoft JhengHei Light & Microsoft JhengHei UI Light": {"styles": {"Regular": "Microsoft-JhengHei-Light-&-Microsoft-JhengHei-UI-Light"}, "source": "moviepy_list"},
+            "Microsoft New Tai Lue": {
+                "styles": {"Regular": "Microsoft-New-Tai-Lue", "Bold": "Microsoft-New-Tai-Lue-Bold"}, "source": "moviepy_list"
+            },
+            "Microsoft PhagsPa": {
+                "styles": {"Regular": "Microsoft-PhagsPa", "Bold": "Microsoft-PhagsPa-Bold"}, "source": "moviepy_list"
+            },
+            "Microsoft Sans Serif": {"styles": {"Regular": "Microsoft-Sans-Serif"}, "source": "moviepy_list"},
+            "Microsoft Tai Le": {
+                "styles": {"Regular": "Microsoft-Tai-Le", "Bold": "Microsoft-Tai-Le-Bold"}, "source": "moviepy_list"
+            },
+            "Microsoft YaHei & Microsoft YaHei UI": {"styles": {"Regular": "Microsoft-YaHei-&-Microsoft-YaHei-UI"}, "source": "moviepy_list"},
+            "Microsoft YaHei Bold & Microsoft YaHei UI Bold": {"styles": {"Regular": "Microsoft-YaHei-Bold-&-Microsoft-YaHei-UI-Bold"}, "source": "moviepy_list"},
+            "Microsoft YaHei Light & Microsoft YaHei UI Light": {"styles": {"Regular": "Microsoft-YaHei-Light-&-Microsoft-YaHei-UI-Light"}, "source": "moviepy_list"},
+            "Microsoft Yi Baiti": {"styles": {"Regular": "Microsoft-Yi-Baiti"}, "source": "moviepy_list"},
+            "MingLiU ExtB & PMingLiU ExtB & MingLiU_HKSCS ExtB": {"styles": {"Regular": "MingLiU-ExtB-&-PMingLiU-ExtB-&-MingLiU_HKSCS-ExtB"}, "source": "moviepy_list"},
+            "Mistral": {"styles": {"Regular": "Mistral"}, "source": "moviepy_list"},
+            "Modern No. 20": {"styles": {"Regular": "Modern-No.-20"}, "source": "moviepy_list"},
+            "Mongolian Baiti": {"styles": {"Regular": "Mongolian-Baiti"}, "source": "moviepy_list"},
+            "Monotype Corsiva": {"styles": {"Regular": "Monotype-Corsiva"}, "source": "moviepy_list"},
+            "Myanmar Text": {
+                "styles": {"Regular": "Myanmar-Text", "Bold": "Myanmar-Text-Bold"}, "source": "moviepy_list"
+            },
+            "Niagara Engraved": {"styles": {"Regular": "Niagara-Engraved"}, "source": "moviepy_list"},
+            "Niagara Solid": {"styles": {"Regular": "Niagara-Solid"}, "source": "moviepy_list"},
+            "Nirmala UI Collection": {"styles": {"Regular": "Nirmala-UI-&-Nirmala-UI-Bold-&-Nirmala-UI-Semilight-&-Nirmala-Text-&-Nirmala-Text-Bold-&-Nirmala-Text-Semilight"}, "source": "moviepy_list"},
+            "OCR A Extended": {"styles": {"Regular": "OCR-A-Extended"}, "source": "moviepy_list"},
+            "Old English Text MT": {"styles": {"Regular": "Old-English-Text-MT"}, "source": "moviepy_list"},
+            "Onyx": {"styles": {"Regular": "Onyx"}, "source": "moviepy_list"},
+            "Palace Script MT": {"styles": {"Regular": "Palace-Script-MT"}, "source": "moviepy_list"},
+            "Palatino Linotype": {
+                "styles": {"Regular": "Palatino-Linotype", "Bold": "Palatino-Linotype-Bold", "Bold Italic": "Palatino-Linotype-Bold-Italic", "Italic": "Palatino-Linotype-Italic"},
+                "source": "moviepy_list"
+            },
+            "Papyrus": {"styles": {"Regular": "Papyrus"}, "source": "moviepy_list"},
+            "Parchment": {"styles": {"Regular": "Parchment"}, "source": "moviepy_list"},
+            "Perpetua": {
+                "styles": {"Regular": "Perpetua", "Bold": "Perpetua-Bold", "Bold Italic": "Perpetua-Bold-Italic", "Italic": "Perpetua-Italic"}, "source": "moviepy_list"
+            },
+            "Perpetua Titling MT": { # MoviePy: Perpetua-Titling-MT-Bold, Perpetua-Titling-MT-Light
+                "styles": {"Bold": "Perpetua-Titling-MT-Bold", "Light": "Perpetua-Titling-MT-Light"}, "source": "moviepy_list"
+            },
+            "Playbill": {"styles": {"Regular": "Playbill"}, "source": "moviepy_list"},
+            "Poor Richard": {"styles": {"Regular": "Poor-Richard"}, "source": "moviepy_list"},
+            "Pristina": {"styles": {"Regular": "Pristina"}, "source": "moviepy_list"},
+            "ROG FONTS": {"styles": {"Regular": "ROG-FONTS"}, "source": "moviepy_list"}, # Nombres especiales
+            "ROG Fonts v1.5": {"styles": {"Regular": "ROG-Fonts-v1.5"}, "source": "moviepy_list"},
+            "Rage Italic": {"styles": {"Regular": "Rage-Italic"}, "source": "moviepy_list"},
+            "Ravie": {"styles": {"Regular": "Ravie"}, "source": "moviepy_list"},
+            "Rockwell": {
+                "styles": {"Regular": "Rockwell", "Bold": "Rockwell-Bold", "Bold Italic": "Rockwell-Bold-Italic", "Condensed": "Rockwell-Condensed", "Condensed Bold": "Rockwell-Condensed-Bold", "Extra Bold": "Rockwell-Extra-Bold", "Italic": "Rockwell-Italic"},
+                "source": "moviepy_list"
+            },
+            "Sans Serif Collection": {"styles": {"Regular": "Sans-Serif-Collection"}, "source": "moviepy_list"},
+            "Script MT Bold": {"styles": {"Regular": "Script-MT-Bold"}, "source": "moviepy_list"},
+            "Segoe Fluent Icons": {"styles": {"Regular": "Segoe-Fluent-Icons"}, "source": "moviepy_list"},
+            "Segoe MDL2 Assets": {"styles": {"Regular": "Segoe-MDL2-Assets"}, "source": "moviepy_list"},
+            "Segoe Print": {
+                "styles": {"Regular": "Segoe-Print", "Bold": "Segoe-Print-Bold"}, "source": "moviepy_list"
+            },
+            "Segoe Script": {
+                "styles": {"Regular": "Segoe-Script", "Bold": "Segoe-Script-Bold"}, "source": "moviepy_list"
+            },
+            "Segoe UI": {
+                "styles": {
+                    "Regular": "Segoe-UI", "Black": "Segoe-UI-Black", "Black Italic": "Segoe-UI-Black-Italic",
+                    "Bold": "Segoe-UI-Bold", "Bold Italic": "Segoe-UI-Bold-Italic", "Italic": "Segoe-UI-Italic",
+                    "Light": "Segoe-UI-Light", "Light Italic": "Segoe-UI-Light-Italic",
+                    "Semibold": "Segoe-UI-Semibold", "Semibold Italic": "Segoe-UI-Semibold-Italic",
+                    "Semilight": "Segoe-UI-Semilight", "Semilight Italic": "Segoe-UI-Semilight-Italic"
+                }, "source": "moviepy_list" # Emoji, Historic, Symbol, Variable como familias separadas
+            },
+            "Segoe UI Emoji": {"styles": {"Regular": "Segoe-UI-Emoji"}, "source": "moviepy_list"},
+            "Segoe UI Historic": {"styles": {"Regular": "Segoe-UI-Historic"}, "source": "moviepy_list"},
+            "Segoe UI Symbol": {"styles": {"Regular": "Segoe-UI-Symbol"}, "source": "moviepy_list"},
+            "Segoe UI Variable": {"styles": {"Regular": "Segoe-UI-Variable"}, "source": "moviepy_list"},
+            "Showcard Gothic": {"styles": {"Regular": "Showcard-Gothic"}, "source": "moviepy_list"},
+            "SimSun & NSimSun": {"styles": {"Regular": "SimSun-&-NSimSun"}, "source": "moviepy_list"},
+            "SimSun ExtB": {"styles": {"Regular": "SimSun-ExtB"}, "source": "moviepy_list"},
+            "SimSun ExtG": {"styles": {"Regular": "SimSun-ExtG"}, "source": "moviepy_list"}, # No es "SimSun-ExtG" sino "SimSun ExtG"
+            "Sitka Text": { # MoviePy: Sitka-Text, Sitka-Text-Italic
+                "styles": {"Regular": "Sitka-Text", "Italic": "Sitka-Text-Italic"}, "source": "moviepy_list"
+            },
+            "Snap ITC": {"styles": {"Regular": "Snap-ITC"}, "source": "moviepy_list"},
+            "Stencil": {"styles": {"Regular": "Stencil"}, "source": "moviepy_list"},
+            "Sylfaen": {"styles": {"Regular": "Sylfaen"}, "source": "moviepy_list"},
+            "Symbol": {"styles": {"Regular": "Symbol"}, "source": "moviepy_list"},
+            "Tahoma": {
+                "styles": {"Regular": "Tahoma", "Bold": "Tahoma-Bold"}, "source": "moviepy_list"
+            },
+            "Tempus Sans ITC": {"styles": {"Regular": "Tempus-Sans-ITC"}, "source": "moviepy_list"},
+            "Times New Roman": {
+                "styles": {"Regular": "Times-New-Roman", "Bold": "Times-New-Roman-Bold", "Bold Italic": "Times-New-Roman-Bold-Italic", "Italic": "Times-New-Roman-Italic"},
+                "source": "moviepy_list"
+            },
+            "Trebuchet MS": {
+                "styles": {"Regular": "Trebuchet-MS", "Bold": "Trebuchet-MS-Bold", "Bold Italic": "Trebuchet-MS-Bold-Italic", "Italic": "Trebuchet-MS-Italic"},
+                "source": "moviepy_list"
+            },
+            "Tw Cen MT": { # MoviePy: Tw-Cen-MT, Tw-Cen-MT-Bold, Tw-Cen-MT-Bold-Italic, Tw-Cen-MT-Condensed, Tw-Cen-MT-Condensed-Bold, Tw-Cen-MT-Condensed-Extra-Bold, Tw-Cen-MT-Italic
+                "styles": {
+                    "Regular": "Tw-Cen-MT", "Bold": "Tw-Cen-MT-Bold", "Bold Italic": "Tw-Cen-MT-Bold-Italic",
+                    "Condensed": "Tw-Cen-MT-Condensed", "Condensed Bold": "Tw-Cen-MT-Condensed-Bold",
+                    "Condensed Extra Bold": "Tw-Cen-MT-Condensed-Extra-Bold", "Italic": "Tw-Cen-MT-Italic"
+                }, "source": "moviepy_list"
+            },
+            "Verdana": {
+                "styles": {
+                    "Regular": "Verdana", "Bold": "Verdana-Bold", "Italic": "Verdana-Italic", "Bold Italic": "Verdana-Bold-Italic"
+                }, "source": "moviepy_list"
+            },
+                      "Viner Hand ITC": {"styles": {"Regular": "Viner-Hand-ITC"}, "source": "moviepy_list"},
+            "Vivaldi Italic": {"styles": {"Regular": "Vivaldi-Italic"}, "source": "moviepy_list"},
+            "Vladimir Script": {"styles": {"Regular": "Vladimir-Script"}, "source": "moviepy_list"},
+            "Webdings": {"styles": {"Regular": "Webdings"}, "source": "moviepy_list"},
+            "Wide Latin": {"styles": {"Regular": "Wide-Latin"}, "source": "moviepy_list"},
+            "Wingdings": {"styles": {"Regular": "Wingdings"}, "source": "moviepy_list"},
+            "Wingdings 2": {"styles": {"Regular": "Wingdings-2"}, "source": "moviepy_list"},
+            "Wingdings 3": {"styles": {"Regular": "Wingdings-3"}, "source": "moviepy_list"},
+            "Yu Gothic Bold & Yu Gothic UI Semibold & Yu Gothic UI Bold": {"styles": {"Regular": "Yu-Gothic-Bold-&-Yu-Gothic-UI-Semibold-&-Yu-Gothic-UI-Bold"}, "source": "moviepy_list"},
+            "Yu Gothic Light & Yu Gothic UI Light": {"styles": {"Regular": "Yu-Gothic-Light-&-Yu-Gothic-UI-Light"}, "source": "moviepy_list"},
+            "Yu Gothic Medium & Yu Gothic UI Regular": {"styles": {"Regular": "Yu-Gothic-Medium-&-Yu-Gothic-UI-Regular"}, "source": "moviepy_list"},
+            "Yu Gothic Regular & Yu Gothic UI Semilight": {"styles": {"Regular": "Yu-Gothic-Regular-&-Yu-Gothic-UI-Semilight"}, "source": "moviepy_list"},
+            "ZWAdobeF": {"styles": {"Regular": "ZWAdobeF"}, "source": "moviepy_list"}
+        }
         self.all_video_templates = []
         self.combined_preview_ctk_image = None
         self.phone_frame_ctk_image = None
@@ -299,24 +690,44 @@ class App(customtkinter.CTk):
         self.srt_style_frame = customtkinter.CTkFrame(self.left_scrollable_frame, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
         self.srt_style_frame.grid(row=current_row_in_left_panel, column=0, sticky="ew", padx=5, pady=10); current_row_in_left_panel += 1; self.srt_style_frame.grid_columnconfigure(1, weight=1); self.srt_style_frame.grid_columnconfigure(3, weight=1)
         customtkinter.CTkLabel(self.srt_style_frame, text="Captions configuration", font=("Arial", 15, "bold"), text_color=COLOR_TEXT_PRIMARY).grid(row=0, column=0, columnspan=4, padx=15, pady=(10,10), sticky="w")
+        
+        # Fila 1: Max Words | Position
         self.srt_max_words_options = ["Whisper (Default)", "1", "2", "3", "4", "5", "6", "7"]; self.srt_max_words_var = customtkinter.StringVar(value="1")
         create_caption_optionmenu_local(self.srt_style_frame, "Max words per segment:", self.srt_max_words_options, self.srt_max_words_var, col=0)
-        self.subtitle_fontsize_options = ["18", "24", "32", "36", "40", "48", "56", "64", "72"]; self.subtitle_fontsize_var = customtkinter.StringVar(value="64")
-        create_caption_optionmenu_local(self.srt_style_frame, "Font size:", self.subtitle_fontsize_options, self.subtitle_fontsize_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2); self.cap_row_internal += 1
         self.subtitle_pos_options = ["Bottom", "Center", "Top"]; self.subtitle_pos_var = customtkinter.StringVar(value="Center")
-        create_caption_optionmenu_local(self.srt_style_frame, "Position:", self.subtitle_pos_options, self.subtitle_pos_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=0)
-        self.subtitle_font_options = ["Arial", "Verdana", "Impact", "Courier New"]; self.subtitle_font_var = customtkinter.StringVar(value="Impact")
-        create_caption_optionmenu_local(self.srt_style_frame, "Font:", self.subtitle_font_options, self.subtitle_font_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2); self.cap_row_internal += 1
+        create_caption_optionmenu_local(self.srt_style_frame, "Position:", self.subtitle_pos_options, self.subtitle_pos_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2)
+        self.cap_row_internal += 1
+
+        # Fila 2: Font Family | Font Style
+        self.subtitle_font_options = sorted(list(self.font_definitions.keys())) # Usar las claves del mapa como opciones, ordenadas
+        self.subtitle_font_var = customtkinter.StringVar(value="Impact") # Valor inicial
+        create_caption_optionmenu_local(self.srt_style_frame, "Font:", self.subtitle_font_options, self.subtitle_font_var, cmd=self._on_font_family_change, col=0)
+        
+        initial_font_styles = list(self.font_definitions[self.subtitle_font_var.get()]["styles"].keys()) if self.subtitle_font_var.get() in self.font_definitions else ["Regular"]
+        self.subtitle_fontstyle_var = customtkinter.StringVar(value="Regular") # Valor inicial, se ajustará si es necesario
+        self.subtitle_fontstyle_menu = create_caption_optionmenu_local(self.srt_style_frame, "Font Style:", initial_font_styles, self.subtitle_fontstyle_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2)
+        self.cap_row_internal += 1
+
+        # Fila 3: Font Size | Stroke Width
+        self.subtitle_fontsize_options = ["18", "24", "32", "36", "40", "48", "56", "64", "72"]; self.subtitle_fontsize_var = customtkinter.StringVar(value="64")
+        create_caption_optionmenu_local(self.srt_style_frame, "Font size:", self.subtitle_fontsize_options, self.subtitle_fontsize_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=0)
+        self.subtitle_strokewidth_options = ["0", "0.5", "1", "1.5", "2", "3"]; self.subtitle_strokewidth_var = customtkinter.StringVar(value="0")
+        create_caption_optionmenu_local(self.srt_style_frame, "Stroke Width:", self.subtitle_strokewidth_options, self.subtitle_strokewidth_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2)
+        self.cap_row_internal += 1
+
+        # Fila 4: Text Color | Stroke Color (custom layout, no change to this row's logic, just its self.cap_row_internal value)
         customtkinter.CTkLabel(self.srt_style_frame, text="Text Color:", text_color=COLOR_TEXT_SECONDARY, font=("Arial",12)).grid(row=self.cap_row_internal, column=0, padx=(15,5), pady=5, sticky="w")
         self.subtitle_text_color_button = customtkinter.CTkButton(self.srt_style_frame, text="CHOOSE", width=80, command=lambda: self.pick_color_for('text_fg'), corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY); self.subtitle_text_color_button.grid(row=self.cap_row_internal, column=1, padx=5, pady=5, sticky="w")
         self.subtitle_text_color_preview = customtkinter.CTkFrame(self.srt_style_frame, width=30, height=30, fg_color=self.subtitle_font_color_hex, border_width=1, border_color=COLOR_TEXT_SECONDARY, corner_radius=4); self.subtitle_text_color_preview.grid(row=self.cap_row_internal, column=1, padx=(100,5), pady=5, sticky="w")
         customtkinter.CTkLabel(self.srt_style_frame, text="Stroke Color:", text_color=COLOR_TEXT_SECONDARY, font=("Arial",12)).grid(row=self.cap_row_internal, column=2, padx=(15,5), pady=5, sticky="w")
         self.subtitle_stroke_color_button = customtkinter.CTkButton(self.srt_style_frame, text="CHOOSE", width=80, command=lambda: self.pick_color_for('stroke_fg'), corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY); self.subtitle_stroke_color_button.grid(row=self.cap_row_internal, column=3, padx=(5,85), pady=5, sticky="w")
         self.subtitle_stroke_color_preview = customtkinter.CTkFrame(self.srt_style_frame, width=30, height=30, fg_color=self.subtitle_stroke_color_hex, border_width=1, border_color=COLOR_TEXT_SECONDARY, corner_radius=4); self.subtitle_stroke_color_preview.grid(row=self.cap_row_internal, column=3, padx=(100,15), pady=5, sticky="w"); self.cap_row_internal += 1
-        self.subtitle_strokewidth_options = ["0", "0.5", "1", "1.5", "2", "3"]; self.subtitle_strokewidth_var = customtkinter.StringVar(value="0")
-        create_caption_optionmenu_local(self.srt_style_frame, "Stroke Width:", self.subtitle_strokewidth_options, self.subtitle_strokewidth_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=0)
+        
+        # Fila 5: Background Text (ocupa las primeras dos columnas de menú)
         self.subtitle_bgcolor_map = { "Transparent": "transparent", "Black Semi (40%)": "rgba(0,0,0,0.4)", "Black Semi (60%)": "rgba(0,0,0,0.6)"}; self.subtitle_bgcolor_options = list(self.subtitle_bgcolor_map.keys()); self.subtitle_bgcolor_var = customtkinter.StringVar(value="Transparent")
-        menu_bg = create_caption_optionmenu_local(self.srt_style_frame, "Background Text:", self.subtitle_bgcolor_options, self.subtitle_bgcolor_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=2); menu_bg.grid(pady=(5,15)); self.cap_row_internal +=1
+        menu_bg = create_caption_optionmenu_local(self.srt_style_frame, "Background Text:", self.subtitle_bgcolor_options, self.subtitle_bgcolor_var, cmd=lambda choice: self.update_subtitle_preview_display(), col=0); menu_bg.grid(pady=(5,15), sticky="ew", columnspan=1) # Label col 0, Menu col 1. columnspan=1 for menu to not overlap.
+        # Considerar ajustar columnspan o la estructura de create_caption_optionmenu_local si se quiere que ocupe más. Por ahora, se ajusta a una pareja.
+        self.cap_row_internal +=1
 
         self.status_frame = customtkinter.CTkFrame(self.left_scrollable_frame, fg_color="transparent")
         self.status_frame.grid(row=current_row_in_left_panel, column=0, sticky="ew", padx=5, pady=(10,0)); current_row_in_left_panel += 1
@@ -545,16 +956,57 @@ class App(customtkinter.CTk):
             traceback.print_exc()
             self.combined_preview_display_label.configure(image=None, text="[Preview Gen Error]")
 
+    def _on_font_family_change(self, selected_font_family: str):
+        """Actualiza las opciones del menú de estilo de fuente cuando cambia la familia de fuente."""
+        font_def = self.font_definitions.get(selected_font_family)
+        if font_def and "styles" in font_def:
+            valid_styles = list(font_def["styles"].keys())
+        else:
+            valid_styles = ["Regular"] # Fallback
+            print(f"WARN: Font family '{selected_font_family}' not found in font_definitions or has no styles.")
+        
+        current_style = self.subtitle_fontstyle_var.get()
+        
+        # Actualizar las opciones del menú desplegable de estilo de fuente
+        if hasattr(self, 'subtitle_fontstyle_menu'):
+            self.subtitle_fontstyle_menu.configure(values=valid_styles)
+        
+        # Si el estilo actual no es válido para la nueva familia, seleccionar "Regular" o el primer estilo válido
+        if current_style not in valid_styles:
+            if "Regular" in valid_styles:
+                self.subtitle_fontstyle_var.set("Regular")
+            elif valid_styles: # Si "Regular" no está pero hay otros estilos válidos
+                self.subtitle_fontstyle_var.set(valid_styles[0])
+        
+        self.update_subtitle_preview_display()
 
     def _get_current_subtitle_style_options(self) -> dict | None:
         # print(f"DEBUG_SELF (_get_current_subtitle_style_options): type(self) is {type(self)}, id(self) is {id(self)}")
         if not all(hasattr(self, attr_name) for attr_name in ['subtitle_bgcolor_map', 'subtitle_bgcolor_var', 'subtitle_fontsize_var', 'subtitle_strokewidth_var', 'subtitle_font_var', 'subtitle_font_color_hex', 'subtitle_stroke_color_hex', 'subtitle_pos_var']):
-            print(f"CRITICAL DEBUG: Subtitle style attributes missing on self (id: {id(self)}) in _get_current_subtitle_style_options!")
+            missing_attrs = [attr for attr in ['subtitle_bgcolor_map', 'subtitle_bgcolor_var', 'subtitle_fontsize_var', 'subtitle_strokewidth_var', 'subtitle_font_var', 'subtitle_fontstyle_var', 'subtitle_font_color_hex', 'subtitle_stroke_color_hex', 'subtitle_pos_var'] if not hasattr(self, attr)]
+            print(f"CRITICAL DEBUG: Subtitle style attributes missing in _get_current_subtitle_style_options: {', '.join(missing_attrs)} on self (id: {id(self)})")
             return None
+
+        font_family_ui = self.subtitle_font_var.get()
+        font_style_ui = self.subtitle_fontstyle_var.get()
+        
+        final_font_name = font_family_ui # Fallback al nombre de la familia
+
+        font_def = self.font_definitions.get(font_family_ui)
+        if font_def and "styles" in font_def:
+            final_font_name = font_def["styles"].get(font_style_ui, font_family_ui)
+            # Si el estilo no se encuentra (no debería pasar), usa el nombre de la familia.
+            # Si el estilo es "Regular" y no está explícitamente, pero la familia sí, usa el nombre de la familia.
+        else:
+            # Si la familia no está en las definiciones (no debería pasar), intenta construirlo.
+            if font_style_ui != "Regular": final_font_name = f"{font_family_ui}-{font_style_ui}"
+
         actual_bg_color = self.subtitle_bgcolor_map.get(self.subtitle_bgcolor_var.get(), "rgba(0,0,0,0.4)")
         try: fontsize, strokewidth = int(self.subtitle_fontsize_var.get()), float(self.subtitle_strokewidth_var.get())
         except ValueError: fontsize, strokewidth = 36, 1.5; self.status_label.configure(text="Warn: Invalid sub style.")
-        return {'font': self.subtitle_font_var.get(), 'fontsize': fontsize, 'color': self.subtitle_font_color_hex, 'stroke_color': self.subtitle_stroke_color_hex, 'stroke_width': strokewidth, 'bg_color': actual_bg_color, 'position_choice': self.subtitle_pos_var.get()}
+        
+        print(f"DEBUG (Subtitle Style Options): Attempting to use font='{final_font_name}', fontsize={fontsize}, color='{self.subtitle_font_color_hex}', stroke_color='{self.subtitle_stroke_color_hex}', stroke_width={strokewidth}, bg_color='{actual_bg_color}', position='{self.subtitle_pos_var.get()}'")
+        return {'font': final_font_name, 'fontsize': fontsize, 'color': self.subtitle_font_color_hex, 'stroke_color': self.subtitle_stroke_color_hex, 'stroke_width': strokewidth, 'bg_color': actual_bg_color, 'position_choice': self.subtitle_pos_var.get()}
 
     # --- ALL OTHER METHODS from the previous response MUST BE COPIED HERE ---
     # (check_queue_for_updates, _get_main_action_buttons_for_state_management, etc.)
