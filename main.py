@@ -103,6 +103,7 @@ class App(customtkinter.CTk):
         self.background_video_path = None
         self.can_generate_audio = False
         self.selected_voice_technical_name = None
+        self.selected_voice_friendly_name_full = None
         self.selected_voice_button_widget = None
         self.voice_buttons_map = {}
 
@@ -162,7 +163,9 @@ class App(customtkinter.CTk):
             self.combined_preview_display_label.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.8, relheight=0.8)
 
         # New Generate Video Button
-        generate_button_text_fallback = "Generate Video" if not self.generate_image_default else ""
+        generate_button_text_fallback = "" if self.generate_image_default else "GENERAR VIDEO"
+        initial_fg_color = COLOR_BACKGROUND_MAIN if self.generate_image_default else COLOR_PRIMARY_ACTION
+        initial_hover_color = COLOR_BACKGROUND_MAIN if self.generate_image_default else COLOR_PRIMARY_ACTION_HOVER
         self.generate_video_button = customtkinter.CTkButton(
             self.right_pane, # Parent is the right pane
             text=generate_button_text_fallback,
@@ -214,47 +217,68 @@ class App(customtkinter.CTk):
         self.voice_selection_outer_frame = customtkinter.CTkFrame(self.left_scrollable_frame, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
         self.voice_selection_outer_frame.grid(row=current_row_in_left_panel, column=0, sticky="ew", padx=5, pady=10); current_row_in_left_panel += 1
         header_frame_voice = customtkinter.CTkFrame(self.voice_selection_outer_frame, fg_color="transparent")
-        header_frame_voice.pack(fill="x", padx=15, pady=(10,5))
+        header_frame_voice.pack(fill="x", padx=15, pady=(10,5)) # Usar pack para layout simple dentro del outer_frame
         customtkinter.CTkLabel(header_frame_voice, text="Select a voice", font=("Arial", 15, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(side="left")
         self.view_all_voices_button = customtkinter.CTkButton(header_frame_voice, text="View all", command=self.open_view_all_voices_popup, width=80, corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY)
         self.view_all_voices_button.pack(side="right")
         self.voice_thumbnail_grid_main = customtkinter.CTkFrame(self.voice_selection_outer_frame, fg_color="transparent")
-        self.voice_thumbnail_grid_main.pack(fill="x", expand=True, padx=15, pady=5)
+        self.voice_thumbnail_grid_main.pack(fill="x", expand=True, padx=15, pady=5) # Usar pack
+        
+        for i in range(VOICE_AVATAR_GRID_COLUMNS_MAIN): # Configurar columnas para el grid de voces
+            self.voice_thumbnail_grid_main.grid_columnconfigure(i, weight=1)
+        
+        self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices() # Mapa de Amigable_Completo -> Técnico
+        
+        self.desired_main_ui_voices_meta = [
+            {"tech": "af_heart", "friendly_short": "Heart", "img": "heart.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_bella", "friendly_short": "Bella", "img": "bella.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_alloy", "friendly_short": "Alloy", "img": "alloy.png", "lang_code_for_sentence": "en"}, # Asegúrate que todas tengan estas 3 claves + lang_code
+            {"tech": "af_aoede", "friendly_short": "Aoede", "img": "aoede.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_kore", "friendly_short": "Kore", "img": "kore.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_nicole", "friendly_short": "Nicole", "img": "nicole.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_nova", "friendly_short": "Nova", "img": "nova.png", "lang_code_for_sentence": "en"},
+            {"tech": "af_sarah", "friendly_short": "Sarah", "img": "sarah.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_fenrir", "friendly_short": "Fenrir", "img": "fenrir.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_michael", "friendly_short": "Michael", "img": "michael.png", "lang_code_for_sentence": "en"},
+            {"tech": "am_puck", "friendly_short": "Puck", "img": "puck.png", "lang_code_for_sentence": "en"},
+            {"tech": "bf_emma", "friendly_short": "Emma", "img": "emma.png", "lang_code_for_sentence": "en"},
+            {"tech": "bm_fable", "friendly_short": "Fable", "img": "fable.png", "lang_code_for_sentence": "en"},
+            {"tech": "bm_george", "friendly_short": "George", "img": "george.png", "lang_code_for_sentence": "en"},
+            # Si eliminaste las voces en español de tts_kokoro_module.py, no las pongas aquí.
+        ]
+        
+        self.active_main_ui_voices_meta = [
+            vm for vm in self.desired_main_ui_voices_meta if vm["tech"] in self.available_voices_map.values()
+        ]
+
+        self.test_voice_button = customtkinter.CTkButton(self.voice_selection_outer_frame, text="Test Selected Voice", command=self.play_voice_sample_threaded, corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY)
+        self.test_voice_button.pack(pady=(5,15), padx=15, anchor="w")
         
         self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices()
         print(f"DEBUG: self.available_voices_map = {self.available_voices_map}") # Debug print
         self.voice_friendly_names = list(self.available_voices_map.keys())
-        
-        self.desired_main_ui_voices_meta = [{"tech": "af_heart", "friendly": "Heart", "img": "heart.png"}, {"tech": "am_fenrir", "friendly": "Fenrir", "img": "fenrir.png"}, {"tech": "af_bella", "friendly": "Bella", "img": "bella.png"}, {"tech": "bf_emma", "friendly": "Emma", "img": "emma.png"}, {"tech": "am_michael", "friendly": "Michael", "img": "michael.png"}, {"tech": "bm_george", "friendly": "George", "img": "george.png"},]
+        # La redefinición de self.desired_main_ui_voices_meta que estaba aquí ha sido eliminada.
+        # Se usará la definición de las líneas 226-242 que contiene "friendly_short".
         available_tech_names_list = list(self.available_voices_map.values())
         print(f"DEBUG: available_tech_names_list from Kokoro = {available_tech_names_list}") # Debug print
 
         default_voice_tech, default_voice_friendly_display = None, "No voices"
         if self.voice_friendly_names: # Check if any voices were loaded at all
-            for voice_meta_item in self.desired_main_ui_voices_meta:
-                if voice_meta_item["tech"] in available_tech_names_list: default_voice_tech, default_voice_friendly_display = voice_meta_item["tech"], voice_meta_item["friendly"]; break
+            # Usar la (ahora única) self.desired_main_ui_voices_meta (la lista larga y correcta)
+            for voice_meta_item in self.desired_main_ui_voices_meta: # Iterar sobre la lista correcta
+                if voice_meta_item["tech"] in available_tech_names_list: default_voice_tech, default_voice_friendly_display = voice_meta_item["tech"], voice_meta_item["friendly_short"]; break # Usar friendly_short
             if not default_voice_tech and available_tech_names_list: # Fallback if none of desired are available, but others are
                 default_voice_tech = available_tech_names_list[0]
                 # Find corresponding friendly name for this tech name
                 for fn, tn in self.available_voices_map.items():
-                    if tn == default_voice_tech: default_voice_friendly_display = fn.split(" (")[0].split(" ")[-1]; break # Short friendly
+                    if tn == default_voice_tech: default_voice_friendly_display = fn.split(" (")[0].split(" ")[-1]; break # Crear un nombre corto amigable
         self.selected_voice_technical_name = default_voice_tech; self.can_generate_audio = bool(self.selected_voice_technical_name)
         self.tts_voice_menu_var = customtkinter.StringVar(value=default_voice_friendly_display)
         
-        vr, vc = 0, 0
-        for voice_meta in self.desired_main_ui_voices_meta:
-            tech_name, friendly_display_name, img_file = voice_meta["tech"], voice_meta["friendly"], voice_meta["img"]
-            if tech_name in available_tech_names_list:
-                avatar_img = None
-                try: avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file); os.path.exists(avatar_img_path) and (avatar_img := CTkImage(Image.open(avatar_img_path), size=(45,45)))
-                except Exception as e: print(f"AVATAR MAIN DEBUG: Error loading {img_file} for {friendly_display_name}: {e}")
-                if not avatar_img: print(f"AVATAR MAIN DEBUG: Image NOT LOADED/FOUND for {friendly_display_name}: {os.path.join(self.VOICE_AVATAR_PATH, img_file)}")
-                voice_button = customtkinter.CTkButton(self.voice_thumbnail_grid_main, text=friendly_display_name, image=avatar_img, compound="top", fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, width=110, height=75, text_color=COLOR_TEXT_SECONDARY, font=("Arial", 11))
-                voice_button.configure(command=lambda fn=friendly_display_name, tn=tech_name, b=voice_button: self.select_voice_from_avatar(fn, tn, b)); voice_button.grid(row=vr, column=vc, padx=4, pady=4, sticky="nsew"); self.voice_buttons_map[tech_name] = voice_button; vc += 1
-                if vc >= VOICE_AVATAR_GRID_COLUMNS_MAIN: vc = 0; vr += 1
-            else: print(f"Info: Main UI voice {friendly_display_name} ({tech_name}) NOT available. Skipping display.")
-        for i in range(VOICE_AVATAR_GRID_COLUMNS_MAIN): self.voice_thumbnail_grid_main.grid_columnconfigure(i, weight=1)
-        self.test_voice_button = customtkinter.CTkButton(self.voice_selection_outer_frame, text="Test Selected Voice", command=self.play_voice_sample_threaded, corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY)
+        # Este bucle es redundante ya que refresh_main_voice_avatar_grid() se llama más tarde
+        # y se encarga de dibujar los avatares basados en self.active_main_ui_voices_meta.
+
+        #self.test_voice_button = customtkinter.CTkButton(self.voice_selection_outer_frame, text="Test Selected Voice", command=self.play_voice_sample_threaded, corner_radius=CORNER_RADIUS_BUTTON, fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER, text_color=COLOR_TEXT_SECONDARY)
         self.test_voice_button.pack(pady=(5,15), padx=15, anchor="w"); self.test_voice_button.configure(state="disabled" if not self.can_generate_audio else "normal", fg_color="grey50" if not self.can_generate_audio else COLOR_BACKGROUND_WIDGET_INPUT)
 
         self.video_template_selection_frame = customtkinter.CTkFrame(self.left_scrollable_frame, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
@@ -298,13 +322,17 @@ class App(customtkinter.CTk):
         self.status_label = customtkinter.CTkLabel(self.status_frame, text="Status: Ready.", text_color=COLOR_TEXT_SECONDARY, anchor="w", font=("Arial",12))
         self.status_label.grid(row=0, column=0, padx=0, pady=0, sticky="ew")
 
-        self._load_video_templates_list()
-        self.refresh_main_thumbnail_grid()
-        if self.selected_voice_technical_name:
-            self.after(150, lambda tech_name=self.selected_voice_technical_name: self.highlight_selected_voice_avatar(tech_name))
+        # Eliminar la redefinición de self.desired_main_ui_voices_meta
+        # La definición original en las líneas 226-242 es la que se usará.
+        # self.desired_main_ui_voices_meta = [{"tech": "af_heart", ...}] # Esta línea (originalmente ~250) se elimina.
+
+        self._load_all_available_voices() # Carga y establece la voz por defecto usando la lista correcta
+        self.refresh_main_voice_avatar_grid() # Dibuja los avatares iniciales
+        
+        self._load_video_templates_list() 
+        self.refresh_main_thumbnail_grid() 
         self.update_subtitle_preview_display()
-        self._check_story_and_set_generate_button_state() # Use renamed method
-        # print(f"DEBUG_SELF (App __init__ end): type(self) is {type(self)}, id(self) is {id(self)}")
+        self._check_story_and_set_generate_button_state()
 
 
     # --- METHODS ---
@@ -374,112 +402,62 @@ class App(customtkinter.CTk):
         self._disable_main_action_button(); threading.Thread(target=self._ai_story_worker, args=(subject, style, max_tokens), daemon=True).start()
 
 
-    def update_subtitle_preview_display(self, _=None):
-        if not hasattr(self, 'combined_preview_display_label'):
-            print("DEBUG: combined_preview_display_label not found in update_subtitle_preview_display")
-            return
-        if not hasattr(self, 'phone_frame_template_pil') or self.phone_frame_template_pil is None:
-            self.combined_preview_display_label.configure(image=None, text="[Phone GFX Missing]")
-            print("DEBUG: phone_frame_template_pil not found or is None")
-            return
-
+    def update_subtitle_preview_display(self, _=None): 
+        if not hasattr(self, 'combined_preview_display_label'): return
+        if not hasattr(self, 'phone_frame_template_pil') or self.phone_frame_template_pil is None: 
+            self.combined_preview_display_label.configure(image=None, text="[Phone GFX Missing]"); return
         try:
-            phone_template_pil = self.phone_frame_template_pil.copy() # Work with a copy
+            phone_template_pil = self.phone_frame_template_pil.copy()
             pt_width, pt_height = phone_template_pil.size
-
-            # 1. Get/Generate Screen Content (video frame + text)
             style_opts = self._get_current_subtitle_style_options()
-            if not style_opts:
-                self.combined_preview_display_label.configure(image=None, text="[Style Error]")
-                return
+            if not style_opts: self.combined_preview_display_label.configure(image=None, text="[Style Error]"); return
             preview_text = "This is a sample subtitle text."
-
             screen_content_pil = None
             if self.current_video_thumbnail_for_composite_path and os.path.exists(self.current_video_thumbnail_for_composite_path):
-                # Assuming create_composite_preview_image returns a path to an image
-                # that is *only* the screen content (video frame + subtitles thereon).
-                # This function MUST NOT add its own phone frame.
+                # Pasar el style_opts directamente
+                style_opts_for_preview = style_opts.copy() # Copiar para no modificar el original si es necesario
+                style_opts_for_preview['preview_subtitle_fixed_height'] = video_processor.PREVIEW_SUBTITLE_HEIGHT
+                # El ancho se pasará directamente a la función de video_processor si es necesario
                 generated_screen_content_path = video_processor.create_composite_preview_image(
-                    self.current_video_thumbnail_for_composite_path,
-                    preview_text,
-                    style_opts
-                )
+                    self.current_video_thumbnail_for_composite_path, preview_text, style_opts_for_preview )
                 if generated_screen_content_path and os.path.exists(generated_screen_content_path):
                     screen_content_pil = Image.open(generated_screen_content_path).convert("RGBA")
-                else:
-                    print(f"WARN: Screen content generation failed or path not found: {generated_screen_content_path}")
-                    # Create a placeholder if generation fails to see if compositing works
-                    # screen_content_pil = Image.new("RGBA", (int(pt_width * 0.8), int(pt_height * 0.8)), "blue") 
-            else:
-                print("INFO: No video selected for preview content.")
-                # Create a placeholder if no video is selected
-                # screen_content_pil = Image.new("RGBA", (int(pt_width * 0.8), int(pt_height * 0.8)), "darkgrey")
+                else: print(f"WARN: Screen content generation failed or path not found: {generated_screen_content_path}")
+            else: print("INFO: No video selected for preview content.")
 
-            # 2. Define Screen Area within the phone_template_pil
-            screen_area_x = pt_width * PHONE_SCREEN_PADDING_X_FACTOR
-            screen_area_y = pt_height * PHONE_SCREEN_PADDING_Y_TOP_FACTOR
-            screen_area_width = pt_width * (1 - 2 * PHONE_SCREEN_PADDING_X_FACTOR)
-            screen_area_height = pt_height * (1 - PHONE_SCREEN_PADDING_Y_TOP_FACTOR - PHONE_SCREEN_PADDING_Y_BOTTOM_FACTOR)
-
-            screen_area_x_int = int(screen_area_x)
-            screen_area_y_int = int(screen_area_y)
-            screen_area_width_int = int(screen_area_width)
-            screen_area_height_int = int(screen_area_height)
-
-            # 3. Prepare Screen Content PIL for pasting
-            # Create a base for the final composite image, same size as the phone template, fully transparent.
             composite_base_pil = Image.new('RGBA', phone_template_pil.size, (0, 0, 0, 0))
-
             if screen_content_pil:
-                # Resize actual screen_content_pil to fit the calculated screen_area
-                resized_screen_content_pil = screen_content_pil.resize(
-                    (screen_area_width_int, screen_area_height_int), 
-                    Image.Resampling.LANCZOS
-                )
-                # Paste the resized screen content onto the composite base at the screen position.
+                screen_area_x_int = int(pt_width * PHONE_SCREEN_PADDING_X_FACTOR)
+                screen_area_y_int = int(pt_height * PHONE_SCREEN_PADDING_Y_TOP_FACTOR)
+                screen_area_width_int = int(pt_width * (1 - 2 * PHONE_SCREEN_PADDING_X_FACTOR))
+                screen_area_height_int = int(pt_height * (1 - PHONE_SCREEN_PADDING_Y_TOP_FACTOR - PHONE_SCREEN_PADDING_Y_BOTTOM_FACTOR))
+                # Redimensionar el contenido (video+subtítulo) para que quepa en el área de la pantalla del teléfono
+                resized_screen_content_pil = screen_content_pil.resize((screen_area_width_int, screen_area_height_int), Image.Resampling.LANCZOS)
                 composite_base_pil.paste(resized_screen_content_pil, (screen_area_x_int, screen_area_y_int))
-            # If screen_content_pil is None, composite_base_pil remains transparent in the screen area.
-
-            # 4. Composite the phone frame graphic on top
-            final_composite_pil = Image.alpha_composite(composite_base_pil, phone_template_pil)
-
-            # 5. Update Display
-            # The CTkImage should be sized to the final_composite_pil's dimensions.
-            # The combined_preview_display_label container (phone_frame_container) is already scaled to 380px width.
-            # So, final_composite_pil (which is based on phone_template_pil) should be used for CTkImage size.
             
-            # If phone_template_pil was from the original file, and display_phone_width was 380,
-            # we should resize final_composite_pil to (display_phone_width, display_phone_height) 
-            # IF its original dimensions were different.
-            # From __init__, self.phone_frame_template_pil IS the original image, not scaled yet.
-            # Let's re-evaluate sizing for display here.
-
-            display_phone_width = 380 # As used in __init__ to size the container
-            final_aspect_ratio = final_composite_pil.height / final_composite_pil.width
+            final_composite_pil = Image.alpha_composite(composite_base_pil, phone_template_pil)
+            
+            display_phone_width = 380 
+            final_aspect_ratio = final_composite_pil.height / final_composite_pil.width if final_composite_pil.width > 0 else 1.0
             display_composite_height = int(display_phone_width * final_aspect_ratio)
 
-            self.combined_preview_ctk_image = CTkImage(
-                light_image=final_composite_pil,
-                dark_image=final_composite_pil,
-                size=(display_phone_width, display_composite_height) # Display size
-            )
+            self.combined_preview_ctk_image = CTkImage(light_image=final_composite_pil, dark_image=final_composite_pil, size=(display_phone_width, display_composite_height))
             self.combined_preview_display_label.configure(image=self.combined_preview_ctk_image, text="")
-
         except Exception as e:
-            print(f"ERROR in update_subtitle_preview_display: {e}")
-            traceback.print_exc()
+            print(f"ERROR in update_subtitle_preview_display: {e}"); traceback.print_exc()
             self.combined_preview_display_label.configure(image=None, text="[Preview Gen Error]")
 
 
     def _get_current_subtitle_style_options(self) -> dict | None:
-        # print(f"DEBUG_SELF (_get_current_subtitle_style_options): type(self) is {type(self)}, id(self) is {id(self)}")
         if not all(hasattr(self, attr_name) for attr_name in ['subtitle_bgcolor_map', 'subtitle_bgcolor_var', 'subtitle_fontsize_var', 'subtitle_strokewidth_var', 'subtitle_font_var', 'subtitle_font_color_hex', 'subtitle_stroke_color_hex', 'subtitle_pos_var']):
-            print(f"CRITICAL DEBUG: Subtitle style attributes missing on self (id: {id(self)}) in _get_current_subtitle_style_options!")
+            print(f"CRITICAL DEBUG: Subtitle style attributes missing in _get_current_subtitle_style_options!")
             return None
         actual_bg_color = self.subtitle_bgcolor_map.get(self.subtitle_bgcolor_var.get(), "rgba(0,0,0,0.4)")
         try: fontsize, strokewidth = int(self.subtitle_fontsize_var.get()), float(self.subtitle_strokewidth_var.get())
         except ValueError: fontsize, strokewidth = 36, 1.5; self.status_label.configure(text="Warn: Invalid sub style.")
-        return {'font': self.subtitle_font_var.get(), 'fontsize': fontsize, 'color': self.subtitle_font_color_hex, 'stroke_color': self.subtitle_stroke_color_hex, 'stroke_width': strokewidth, 'bg_color': actual_bg_color, 'position_choice': self.subtitle_pos_var.get()}
+        return {'font': self.subtitle_font_var.get(), 'fontsize': fontsize, 'color': self.subtitle_font_color_hex, 
+                 'stroke_color': self.subtitle_stroke_color_hex, 'stroke_width': strokewidth, 'bg_color': actual_bg_color, 
+                 'position_choice': self.subtitle_pos_var.get()}
 
     # --- ALL OTHER METHODS from the previous response MUST BE COPIED HERE ---
     # (check_queue_for_updates, _get_main_action_buttons_for_state_management, etc.)
@@ -573,10 +551,15 @@ class App(customtkinter.CTk):
         self._display_thumbnails_in_grid(self.thumbnail_grid_frame, videos_to_show, max_items_to_show=MAX_THUMBNAILS_MAIN_GUI)
         if not self.background_video_path and self.all_video_templates: self.update_subtitle_preview_display()
 
-    def highlight_selected_voice_avatar(self, technical_name_to_select):
-        if self.selected_voice_button_widget: self.selected_voice_button_widget.configure(border_width=0, fg_color=COLOR_BACKGROUND_WIDGET_INPUT)
+    def highlight_selected_voice_avatar(self, technical_name_to_select): #OK
+        # Desmarcar el botón previamente seleccionado
+        if self.selected_voice_button_widget and self.selected_voice_button_widget.winfo_exists():
+            self.selected_voice_button_widget.configure(border_width=0, fg_color=COLOR_BACKGROUND_WIDGET_INPUT)
+        
+        # Marcar el nuevo botón seleccionado (solo si está en el grid principal)
         self.selected_voice_button_widget = self.voice_buttons_map.get(technical_name_to_select)
-        if self.selected_voice_button_widget: self.selected_voice_button_widget.configure(border_width=2, border_color=COLOR_BORDER_SELECTED, fg_color=COLOR_BUTTON_SECONDARY_HOVER)
+        if self.selected_voice_button_widget and self.selected_voice_button_widget.winfo_exists():
+            self.selected_voice_button_widget.configure(border_width=2, border_color=COLOR_BORDER_SELECTED, fg_color=COLOR_BUTTON_SECONDARY_HOVER)
 
     def select_voice_from_avatar(self, friendly_name, technical_name, button_widget_ref):
         self.update_selected_voice_technical_name(friendly_name); self.highlight_selected_voice_avatar(technical_name)
@@ -646,67 +629,153 @@ class App(customtkinter.CTk):
         if hasattr(self, 'test_voice_button'): self.test_voice_button.configure(state="disabled", fg_color="grey50")
         threading.Thread(target=self._play_audio_worker, args=(sample_path, friendly), daemon=True).start()
 
-    def _process_all_worker(self, story, voice_tech, bg_video, srt_words, sub_style, id_str):
-        paths, step = {}, ""
+    def _process_all_worker(self, story_text, tts_voice_tech_name, bg_video_path, srt_max_words, subtitle_style_options, current_id):
+        paths, current_step = {}, ""
         try:
-            self.task_queue.put(self.show_generating_video_popup)
-            step = "TTS"; self.task_queue.put(lambda: self.update_generating_log(f"1/4: {step}..."))
-            paths['audio'] = os.path.join(file_manager.AUDIO_DIR, f"{id_str}.wav")
-            if not tts_kokoro_module.generate_speech_with_voice_name(story, voice_tech, paths['audio']): raise Exception("TTS failed.")
-            step = "Narrated Video"; self.task_queue.put(lambda: self.update_generating_log(f"2/4: {step}..."))
-            paths['narr_vid'] = os.path.join(file_manager.NARRATED_VIDEO_DIR, f"{id_str}.mp4")
-            if not video_processor.create_narrated_video(bg_video, paths['audio'], paths['narr_vid']): raise Exception("Narrated video failed.")
-            step = "SRT Gen"; self.task_queue.put(lambda: self.update_generating_log(f"3/4: {step}..."))
-            paths['srt'] = os.path.join(file_manager.SRT_DIR, f"{id_str}.srt")
-            if not srt_generator.create_srt_file(paths['audio'], paths['srt'], max_words_per_segment=srt_words): raise Exception("SRT failed.")
-            step = "Burn Subs"; self.task_queue.put(lambda: self.update_generating_log(f"4/4: {step}..."))
-            paths['final'] = os.path.join(file_manager.FINAL_VIDEO_DIR, f"{id_str}_{voice_tech}.mp4")
-            if not video_processor.burn_subtitles_on_video(paths['narr_vid'], paths['srt'], paths['final'], style_options=sub_style): raise Exception("Burn subs failed.")
-            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"Video '{id_str}' created! Path: {os.path.abspath(paths['final'])}"))
-        except Exception as e: err_msg = f"Err in '{step}': {e}"; print(err_msg); traceback.print_exc(); self.task_queue.put(lambda: self._update_gui_after_all_processing(False, err_msg))
-        finally: self.task_queue.put(self.hide_generating_video_popup)
+            self.task_queue.put(self.show_generating_video_popup) # Mostrar popup
+            self.task_queue.put(lambda: self.update_generating_log(f"ID del Proyecto: {current_id}"))
+
+            current_step = "Generando Audio (TTS)"; self.task_queue.put(lambda msg=current_step: self.update_generating_log(f"Paso 1/4: {msg}..."))
+            paths['audio'] = os.path.join(file_manager.AUDIO_DIR, f"{current_id}.wav")
+            if not tts_kokoro_module.generate_speech_with_voice_name(story_text, tts_voice_tech_name, paths['audio']): raise Exception("Fallo en generación de audio TTS.")
+
+            current_step = "Creando video narrado"; self.task_queue.put(lambda msg=current_step: self.update_generating_log(f"Paso 2/4: {msg}..."))
+            paths['narr_vid'] = os.path.join(file_manager.NARRATED_VIDEO_DIR, f"{current_id}.mp4")
+            if not video_processor.create_narrated_video(bg_video_path, paths['audio'], paths['narr_vid']): raise Exception("Fallo en creación del video narrado.")
+
+            current_step = "Generando subtítulos SRT"; self.task_queue.put(lambda msg=current_step: self.update_generating_log(f"Paso 3/4: {msg}..."))
+            paths['srt'] = os.path.join(file_manager.SRT_DIR, f"{current_id}.srt")
+            if not srt_generator.create_srt_file(paths['audio'], paths['srt'], max_words_per_segment=srt_max_words): raise Exception("Fallo en generación del archivo SRT.")
+            
+            current_step = "Grabando subtítulos en video"; self.task_queue.put(lambda msg=current_step: self.update_generating_log(f"Paso 4/4: {msg}..."))
+            paths['final'] = os.path.join(file_manager.FINAL_VIDEO_DIR, f"{current_id}_{tts_voice_tech_name}.mp4")
+            if not video_processor.burn_subtitles_on_video(paths['narr_vid'], paths['srt'], paths['final'], style_options=subtitle_style_options): raise Exception("Fallo al grabar los subtítulos en el video.")
+            
+            self.task_queue.put(lambda: self._update_gui_after_all_processing(True, f"¡Video ({current_id}) completo! {os.path.abspath(paths['final'])}"))
+        except Exception as e: 
+            error_full_msg = f"Error en '{current_step}': {str(e)}"; print(error_full_msg); traceback.print_exc()
+            self.task_queue.put(lambda err=error_full_msg: self._update_gui_after_all_processing(False, err)) # Pasar el mensaje de error completo
+        finally: 
+            self.task_queue.put(self.hide_generating_video_popup) # Ocultar popup
 
     def _update_gui_after_all_processing(self, success: bool, message: str):
         self.status_label.configure(text=message)
-        if hasattr(self, 'generating_log_textbox') and self.generating_log_textbox.winfo_exists(): self.update_generating_log(f"Final: {message}")
+        if hasattr(self, 'generating_log_textbox') and self.generating_log_textbox.winfo_exists(): self.update_generating_log(f"Resultado Final: {message}")
         self._enable_main_action_button()
+        self._check_story_and_set_generate_button_state()
 
-    def process_all_steps_threaded(self):
-        story = self.story_textbox.get("1.0", "end-1c").strip()
-        placeholders = ["1. Fetch a story", "Loading", "Generating"]
-        if not story or any(story.startswith(p) for p in placeholders if p): self.status_label.configure(text="Err: No valid story."); return
-        if not self.can_generate_audio or not self.selected_voice_technical_name: self.status_label.configure(text="Err: No TTS voice."); return
-        if not self.background_video_path or not os.path.exists(self.background_video_path): self.status_label.configure(text="Err: BG video not found."); return
-        max_words_str = self.srt_max_words_var.get()
-        srt_words = int(max_words_str) if max_words_str.isdigit() else None
-        if max_words_str != "Whisper (Defecto)" and srt_words is None: self.status_label.configure(text="Err SRT: Invalid Max words."); return
-        sub_style = self._get_current_subtitle_style_options()
-        if not sub_style: self.status_label.configure(text="Err: Subtitle style options invalid."); return
-        id_str = file_manager.get_next_id_str()
-        self.status_label.configure(text=f"Starting video gen (ID: {id_str})..."); self.update_idletasks()
-        self._disable_main_action_button()
-        threading.Thread(target=self._process_all_worker, args=(story, self.selected_voice_technical_name, self.background_video_path, srt_words, sub_style, id_str), daemon=True).start()
+    def process_all_steps_threaded(self): #OK
+        # 1. Recoger el texto de la historia
+        story_text = self.story_textbox.get("1.0", "end-1c").strip()
+        placeholders = [
+            "1. Obtén/Genera una historia aquí.", 
+            "1. Fetch a story using the URL or generate one with AI.", # Placeholder de tu nueva UI
+            "Cargando...", 
+            "Generando IA (hilo)...",
+            "Loading Reddit story...", # Placeholder de tu nueva UI
+            "Generating AI story..." # Placeholder de tu nueva UI
+        ]
+        is_placeholder = any(story_text.startswith(p_start) for p_start in placeholders if p_start)
+        if not story_text or is_placeholder: 
+            self.status_label.configure(text="Error: No hay texto válido en la historia para procesar.")
+            return
+
+        # 2. Verificar la voz TTS seleccionada
+        if not self.can_generate_audio or not self.selected_voice_technical_name: 
+            self.status_label.configure(text="Error: Voz TTS no válida seleccionada.")
+            return
+        tts_voice_tech_name = self.selected_voice_technical_name # Ya se actualiza con update_selected_voice_technical_name o select_voice_from_avatar
+
+        # 3. Verificar el video de fondo seleccionado
+        if not self.background_video_path: 
+            self.status_label.configure(text="Error: Selecciona un video de fondo de las plantillas.")
+            return
+        if not os.path.exists(self.background_video_path): 
+            self.status_label.configure(text=f"Error: Video de fondo '{os.path.basename(self.background_video_path)}' no encontrado. Por favor, re-selecciónalo.")
+            return
+        bg_video_path = self.background_video_path
         
-    def open_view_all_voices_popup(self): # Stub - copy from previous
-        print("open_view_all_voices_popup called")
-        if hasattr(self, 'all_voices_popup') and self.all_voices_popup.winfo_exists(): self.all_voices_popup.focus(); self.all_voices_popup.grab_set(); return
+        # 4. Recoger configuración de SRT (Max words per segment)
+        max_words_str = self.srt_max_words_var.get()
+        srt_max_words = None 
+        if max_words_str.isdigit(): 
+            srt_max_words = int(max_words_str)
+        elif max_words_str != "Whisper (Defecto)": 
+            self.status_label.configure(text="Error SRT: Opción de 'Palabras Máx. por Segmento' inválida.")
+            return
+
+        # 5. Recoger opciones de estilo de subtítulos
+        # La función _get_current_subtitle_style_options ya maneja la conversión a int/float y los defaults
+        subtitle_style_options = self._get_current_subtitle_style_options()
+        if not subtitle_style_options : # Si _get_current_subtitle_style_options devolvió None por un error
+            self.status_label.configure(text="Error: Opciones de estilo de subtítulo inválidas (ej. tamaño/ancho de borde no numérico).")
+            return
+        
+        # 6. Generar ID único para esta tanda de archivos
+        current_id = file_manager.get_next_id_str()
+        self.status_label.configure(text=f"Iniciando proceso completo para ID: {current_id}... (Ver Pop-up y consola para progreso)")
+        self.update_idletasks()
+        
+        self._disable_main_action_button() # Desactivar botones principales de la GUI
+        
+        # 7. Lanzar el trabajador principal en un hilo
+        master_thread = threading.Thread(
+            target=self._process_all_worker,
+            args=(story_text, tts_voice_tech_name, bg_video_path, srt_max_words, subtitle_style_options, current_id),
+            daemon=True
+        )
+        master_thread.start()
+        
+    def open_view_all_voices_popup(self):
+        if hasattr(self, 'all_voices_popup') and self.all_voices_popup.winfo_exists():
+            self.all_voices_popup.focus()
+            self.all_voices_popup.grab_set()
+            return
+
         self.all_voices_popup = customtkinter.CTkToplevel(self)
-        self.all_voices_popup.title("Choose a voice"); self.all_voices_popup.geometry("720x600")
-        self.all_voices_popup.attributes("-topmost", True); self.all_voices_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_voices_popup.grab_set()
+        self.all_voices_popup.title("Choose a voice")
+        self.all_voices_popup.geometry("720x600") # Ajusta según necesites
+        self.all_voices_popup.attributes("-topmost", True)
+        self.all_voices_popup.configure(fg_color=COLOR_BACKGROUND_MAIN)
+        self.all_voices_popup.grab_set()
+
         customtkinter.CTkLabel(self.all_voices_popup, text="Choose a voice", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=15)
+
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_voices_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
-        scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
-        vr, vc = 0, 0
-        desired_main_ui_voices_meta = [{"tech": "af_heart", "friendly": "Heart", "img": "heart.png"}, {"tech": "am_fenrir", "friendly": "Fenrir", "img": "fenrir.png"}, {"tech": "af_bella", "friendly": "Bella", "img": "bella.png"}, {"tech": "bf_emma", "friendly": "Emma", "img": "emma.png"}, {"tech": "am_michael", "friendly": "Michael", "img": "michael.png"}, {"tech": "bm_george", "friendly": "George", "img": "george.png"},] # Define or access
-        for friendly_name, tech_name in self.available_voices_map.items():
-            img_file_guess = next((df["img"] for df in desired_main_ui_voices_meta if df["tech"] == tech_name), f"{tech_name.split('_')[-1] if '_' in tech_name else tech_name}.png")
-            avatar_img = None
-            try: avatar_img_path = os.path.join(self.VOICE_AVATAR_PATH, img_file_guess); os.path.exists(avatar_img_path) and (avatar_img := CTkImage(Image.open(avatar_img_path), size=(50,50)))
-            except Exception as e: print(f"POPUP AVATAR DEBUG: Error loading {img_file_guess} for {friendly_name}: {e}")
-            voice_button = customtkinter.CTkButton(scrollable_frame, text=friendly_name, image=avatar_img, compound="top", command=lambda fn=friendly_name, tn=tech_name: self.select_voice_from_popup(fn, tn), fg_color=COLOR_BACKGROUND_CARD, hover_color=COLOR_BUTTON_SECONDARY_HOVER, corner_radius=CORNER_RADIUS_BUTTON, height=90, text_color=COLOR_TEXT_PRIMARY, font=("Arial",11))
-            voice_button.grid(row=vr, column=vc, padx=5, pady=5, sticky="nsew"); vc += 1
-            if vc >= VOICE_AVATAR_GRID_COLUMNS_POPUP: vc = 0; vr += 1
-        for i in range(VOICE_AVATAR_GRID_COLUMNS_POPUP): scrollable_frame.grid_columnconfigure(i, weight=1)
+        scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,10))
+        for i in range(VOICE_AVATAR_GRID_COLUMNS_POPUP): # Configurar columnas para el grid
+            scrollable_frame.grid_columnconfigure(i, weight=1)
+
+        # Crear la lista de metadata para TODAS las voces disponibles para el popup
+        all_voices_meta_for_popup = []
+        for full_friendly_name, tech_name in self.available_voices_map.items():
+            # Intentar encontrar metadata predefinida para la imagen, si no, usar un fallback.
+            predefined_meta = next((vm for vm in self.desired_main_ui_voices_meta if vm["tech"] == tech_name), None)
+
+            img_file = predefined_meta.get("img") if predefined_meta else f"{tech_name.split('_')[0]}.png" # ej. af.png, am.png o un default_avatar.png
+            # El nombre corto no es crucial para el popup si mostramos el full_friendly_name en el botón
+
+            lang_code_for_sentence = "en" # Default
+            if "Español" in full_friendly_name: lang_code_for_sentence = "es"
+            # Añade más lógicas de idioma si es necesario
+
+            all_voices_meta_for_popup.append({
+                "tech": tech_name,
+                "friendly_name_full": full_friendly_name, # Usar este para el texto del botón en el popup
+                "friendly_short": predefined_meta.get("friendly_short") if predefined_meta else tech_name, # Para consistencia de la estructura
+                "img": img_file,
+                "lang_code_for_sentence": lang_code_for_sentence
+            })
+
+        # Llamar a _display_voice_avatars_in_grid
+        # Esta función ahora necesita tomar la lista de diccionarios completos.
+        self._display_voice_avatars_in_grid(
+            scrollable_frame, 
+            all_voices_meta_for_popup, # Pasar la lista completa de metadata
+            from_popup=True, 
+            popup_window_ref=self.all_voices_popup
+        )
+        customtkinter.CTkButton(self.all_voices_popup, text="Close", command=lambda: (self.all_voices_popup.grab_release(), self.all_voices_popup.destroy(), delattr(self, 'all_voices_popup')), width=100).pack(pady=(5,10))
 
     def select_voice_from_popup(self, friendly_name, technical_name): # Stub - copy from previous
         print(f"select_voice_from_popup: {friendly_name}, {technical_name}")
@@ -763,79 +832,261 @@ class App(customtkinter.CTk):
             if popup_window_ref == getattr(self, 'all_videos_main_popup', None): delattr(self, 'all_videos_main_popup')
         self.refresh_main_thumbnail_grid(newly_selected_path=video_path)
     
-    def _is_story_valid(self) -> bool:
+    def _is_story_valid(self) -> bool: 
         if not hasattr(self, 'story_textbox'): return False
         story_text = self.story_textbox.get("1.0", "end-1c").strip()
-        placeholders = [
-            "1. Fetch a story using the URL or generate one with AI.",
-            "Loading story from Reddit...",
-            "Generating AI story...",
-            # Puedes añadir más placeholders si los usas
-        ]
-        # Considera también una longitud mínima si es necesario, ej: len(story_text) < 10
-        if not story_text or any(story_text.startswith(p_text) for p_text in placeholders if p_text):
-            return False
+        placeholders = ["1. Obtén/Genera una historia aquí.", "1. Fetch a story using the URL or generate one with AI.", "Cargando...", "Generando IA (hilo)...", "Loading Reddit story...","Generando AI story..."]
+        if not story_text or any(story_text.startswith(p_text) for p_text in placeholders if p_text): return False
         return True
 
     def _check_story_and_set_generate_button_state(self):
-        if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists():
-            return
-        if self.long_process_active: 
-            return
-        if self._is_story_valid():
-            self.generate_video_button.configure(state="normal")
-        else:
-            self.generate_video_button.configure(state="disabled")
+        if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists(): return
+        if self.long_process_active: return # No cambiar estado si un proceso largo ya está activo
+        
+        is_ready = self._is_story_valid() and self.can_generate_audio and self.background_video_path and os.path.exists(self.background_video_path)
+        self.generate_video_button.configure(state="normal" if is_ready else "disabled")
         self._update_generate_button_image()
 
     def _update_generate_button_image(self):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists():
             return
 
-        current_image = None
+        current_image_to_set = None
         button_state = self.generate_video_button.cget("state")
-
-        if button_state == "disabled":
-            current_image = self.generate_image_disabled
-        elif self.generate_button_is_pressed:
-            current_image = self.generate_image_active
-        elif self.mouse_is_over_generate_button:
-            current_image = self.generate_image_hover
-        else:
-            current_image = self.generate_image_default
-
-        if current_image is None and self.generate_image_default:
-            current_image = self.generate_image_default
         
-        if isinstance(current_image, customtkinter.CTkImage) or current_image is None:
-            self.generate_video_button.configure(image=current_image)
-        elif self.generate_image_default:
-            self.generate_video_button.configure(image=self.generate_image_default)
+        # Determinar qué imagen usar basado en el estado
+        if button_state == "disabled":
+            current_image_to_set = self.generate_image_disabled
+        elif self.generate_button_is_pressed: # Estado presionado
+            current_image_to_set = self.generate_image_active
+        elif self.mouse_is_over_generate_button: # Estado hover
+            current_image_to_set = self.generate_image_hover
+        else: # Estado normal (ni hover, ni presionado, ni disabled)
+            current_image_to_set = self.generate_image_default
+
+        # Fallback final si la imagen específica del estado no cargó pero la default sí
+        if current_image_to_set is None and self.generate_image_default is not None:
+            current_image_to_set = self.generate_image_default
+        
+        # Configurar el botón
+        if current_image_to_set:
+            # Si tenemos una imagen para mostrar
+            self.generate_video_button.configure(
+                image=current_image_to_set,
+                text="",  # Sin texto cuando hay imagen
+                fg_color=COLOR_BACKGROUND_MAIN,  # Usar el color de fondo del panel derecho
+                hover_color=COLOR_BACKGROUND_MAIN # Usar el mismo para hover, la imagen es la que cambia
+            )
+        else:
+            # Si NO hay ninguna imagen disponible (ni siquiera la default), usar texto y colores sólidos
+            generate_button_text_fallback = "GENERAR VIDEO" # Texto si no hay imagen
+            fg_color_for_text_button = COLOR_PRIMARY_ACTION if button_state == "normal" else "grey50"
+            hover_color_for_text_button = COLOR_PRIMARY_ACTION_HOVER if button_state == "normal" else "grey50"
+            
+            self.generate_video_button.configure(
+                image=None,
+                text=generate_button_text_fallback,
+                fg_color=fg_color_for_text_button,
+                hover_color=hover_color_for_text_button
+            )
 
     def _on_generate_button_enter(self, event):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists(): return
         self.mouse_is_over_generate_button = True
-        if self.generate_video_button.cget("state") == "normal":
-            self._update_generate_button_image()
-
+        if self.generate_video_button.cget("state") == "normal": self._update_generate_button_image()
     def _on_generate_button_leave(self, event):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists(): return
         self.mouse_is_over_generate_button = False
-        if self.generate_video_button.cget("state") == "normal":
-            self._update_generate_button_image()
-
+        if self.generate_video_button.cget("state") == "normal": self._update_generate_button_image()
     def _on_generate_button_press(self, event):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists(): return
-        if self.generate_video_button.cget("state") == "normal":
-            self.generate_button_is_pressed = True
-            self._update_generate_button_image()
-
+        if self.generate_video_button.cget("state") == "normal": self.generate_button_is_pressed = True; self._update_generate_button_image()
     def _on_generate_button_release(self, event):
         if not hasattr(self, 'generate_video_button') or not self.generate_video_button.winfo_exists(): return
-        if self.generate_button_is_pressed: 
-            self.generate_button_is_pressed = False
-            if self.generate_video_button.cget("state") == "normal":
-                self._update_generate_button_image()
+        if self.generate_button_is_pressed: self.generate_button_is_pressed = False
+        # Llamar al comando solo si el botón seguía presionado y está normal
+        if self.generate_video_button.cget("state") == "normal": 
+            self._update_generate_button_image()
+            # El comando self.process_all_steps_threaded() se llama por el click normal,
+            # no es necesario invocarlo aquí de nuevo a menos que se quiera un comportamiento de "click en release".
+                
+    def _load_all_available_voices(self): #OK
+        """Carga las voces y establece una por defecto si no hay ninguna seleccionada."""
+        self.available_voices_map = tts_kokoro_module.list_available_kokoro_voices()
+        self.voice_friendly_names_full = list(self.available_voices_map.keys()) # Nombres amigables completos
+
+        if not self.selected_voice_technical_name and self.active_main_ui_voices_meta:
+            # Si no hay nada seleccionado, selecciona la primera de la lista de UI principal activa
+            first_voice_to_select_meta = self.active_main_ui_voices_meta[0]
+            # Encontrar el nombre amigable completo para este nombre técnico
+            full_friendly_name = ""
+            for fn, tn in self.available_voices_map.items():
+                if tn == first_voice_to_select_meta["tech"]:
+                    full_friendly_name = fn
+                    break
+            if full_friendly_name:
+                self._select_voice_internal(full_friendly_name, first_voice_to_select_meta["tech"])
+        
+        self.can_generate_audio = bool(self.selected_voice_technical_name)
+        if hasattr(self, 'test_voice_button'): # Asegurarse que el botón existe
+            self.test_voice_button.configure(state="normal" if self.can_generate_audio else "disabled", 
+                                             fg_color=COLOR_BACKGROUND_WIDGET_INPUT if self.can_generate_audio else "grey50")
+
+
+    def _display_voice_avatars_in_grid(self, parent_frame, voice_meta_list_to_display, from_popup=False, popup_window_ref=None):
+        for widget in parent_frame.winfo_children(): widget.destroy()
+        if not from_popup: self.voice_buttons_map.clear()
+
+        grid_cols = VOICE_AVATAR_GRID_COLUMNS_POPUP if from_popup else VOICE_AVATAR_GRID_COLUMNS_MAIN
+        avatar_size = (50,50) if from_popup else (45,45) # Puedes ajustar
+        button_width = 150 if from_popup else 110 # Ancho de botón para popup puede ser mayor
+        button_height = 100 if from_popup else 75 # Alto de botón
+
+        row, col = 0, 0
+        for voice_meta in voice_meta_list_to_display:
+            tech_name = voice_meta["tech"]
+
+            # Determinar el nombre a mostrar en el botón
+            if from_popup:
+                display_name_on_button = voice_meta.get("friendly_name_full", tech_name) # En popup, mostrar nombre completo
+            else:
+                display_name_on_button = voice_meta.get("friendly_short", tech_name) # En UI principal, nombre corto
+
+            img_file = voice_meta.get("img", f"{tech_name}.png") # Fallback si no hay 'img'
+
+            avatar_ctk_image = None
+            try:
+                avatar_path = os.path.join(self.VOICE_AVATAR_PATH, img_file)
+                if os.path.exists(avatar_path):
+                    pil_img = Image.open(avatar_path).convert("RGBA")
+                    avatar_ctk_image = CTkImage(pil_img, size=avatar_size)
+                else: 
+                    # print(f"Avatar no encontrado para {display_name_on_button}: {avatar_path}") # Opcional: placeholder
+                    pass
+            except Exception as e: 
+                print(f"Error cargando avatar {img_file} para {display_name_on_button}: {e}")
+
+            voice_button = customtkinter.CTkButton(
+                parent_frame, text=display_name_on_button, image=avatar_ctk_image, compound="top",
+                fg_color=COLOR_BACKGROUND_WIDGET_INPUT, hover_color=COLOR_BUTTON_SECONDARY_HOVER,
+                corner_radius=CORNER_RADIUS_BUTTON, width=button_width, height=button_height,
+                text_color=COLOR_TEXT_SECONDARY, 
+                font=("Arial", 10 if from_popup else 11),
+                # El comando pasa el 'voice_meta' completo
+                command=lambda vm=voice_meta, pop_ref=popup_window_ref: self._select_voice_from_avatar(vm, from_popup, pop_ref)
+            )
+            voice_button.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
+            if not from_popup:
+                self.voice_buttons_map[tech_name] = voice_button
+
+            col += 1
+            if col >= grid_cols: col = 0; row += 1
+
+        for i in range(grid_cols): parent_frame.grid_columnconfigure(i, weight=1)
+
+
+    def _select_voice_internal(self, full_friendly_name: str, technical_name: str): #OK
+        """Función interna para actualizar el estado de la voz seleccionada."""
+        self.selected_voice_friendly_name_full = full_friendly_name
+        self.selected_voice_technical_name = technical_name
+        self.can_generate_audio = True
+        
+        status_display_name = full_friendly_name.split(" (")[0].strip() # Nombre más corto para el status
+        self.status_label.configure(text=f"Voz TTS seleccionada: {status_display_name}")
+        
+        if hasattr(self, 'test_voice_button'): self.test_voice_button.configure(state="normal", fg_color=COLOR_BACKGROUND_WIDGET_INPUT)
+        self._check_story_and_set_generate_button_state() # Actualizar estado del botón principal
+
+
+    def _select_voice_from_avatar(self, voice_meta: dict, from_popup: bool = False, popup_window_ref: customtkinter.CTkToplevel = None):
+        tech_name = voice_meta["tech"]
+        # Usar el nombre amigable completo para la lógica interna y el status label
+        full_friendly_name = voice_meta.get("friendly_name_full")
+
+        # Intentar encontrar el nombre amigable completo desde el mapa principal si no vino en voice_meta
+        if not full_friendly_name:
+            for fn_map, tn_map in self.available_voices_map.items():
+                if tn_map == tech_name:
+                    full_friendly_name = fn_map
+                    break
+
+        if not full_friendly_name: # Fallback si sigue sin encontrarse
+            full_friendly_name = voice_meta.get("friendly_short", tech_name)
+
+
+        self._select_voice_internal(full_friendly_name, tech_name) # Actualizar estado interno
+        self.highlight_selected_voice_avatar(tech_name) # Resaltar en la UI principal
+
+        if from_popup and popup_window_ref and popup_window_ref.winfo_exists():
+            popup_window_ref.grab_release()
+            popup_window_ref.destroy()
+            if popup_window_ref == getattr(self, 'all_voices_popup', None): # Limpiar atributo si es este popup
+                delattr(self, 'all_voices_popup')
+
+            # Lógica para actualizar la primera tarjeta de la UI principal
+            is_already_in_main_grid_desired = any(vm["tech"] == tech_name for vm in self.desired_main_ui_voices_meta)
+
+            if not is_already_in_main_grid_desired:
+                # La voz seleccionada no está en la lista de "deseadas para la UI principal".
+                # Reemplazar la primera de la lista activa.
+                new_voice_meta_for_main_grid = {
+                    "tech": tech_name,
+                    # Usar el 'friendly_short' de voice_meta si existe, si no, construir uno.
+                    "friendly_short": voice_meta.get("friendly_short", full_friendly_name.split(" (")[0].split(" ")[-1]),
+                    "img": voice_meta.get("img", f"{tech_name}.png"), # Usar imagen de voice_meta
+                    "lang_code_for_sentence": voice_meta.get("lang_code_for_sentence", "en")
+                }
+                if self.active_main_ui_voices_meta: # Si la lista activa no está vacía
+                    print(f"PopUp Selection: Reemplazando '{self.active_main_ui_voices_meta[0]['tech']}' con '{tech_name}' en el grid principal.")
+                    self.active_main_ui_voices_meta[0] = new_voice_meta_for_main_grid
+                else: # Si estaba vacía, simplemente añadirla
+                    self.active_main_ui_voices_meta = [new_voice_meta_for_main_grid]
+
+                self.refresh_main_voice_avatar_grid(newly_selected_voice_tech_name=tech_name)
+            else: # Si ya está en la lista de deseadas (y por ende en active_main_ui_voices_meta), solo refrescar
+                self.refresh_main_voice_avatar_grid(newly_selected_voice_tech_name=tech_name)
+
+        elif not from_popup: 
+            self.refresh_main_voice_avatar_grid(newly_selected_voice_tech_name=tech_name)
+
+
+    def refresh_main_voice_avatar_grid(self, newly_selected_voice_tech_name: str = None): #OK
+        """Refresca la rejilla principal de avatares de voz."""
+        if not hasattr(self, 'voice_thumbnail_grid_main'): return
+        
+        # Si se acaba de seleccionar una nueva voz (ej. del popup) y no está en la lista principal visible,
+        # la ponemos al principio.
+        if newly_selected_voice_tech_name:
+            is_in_active_list = any(vm["tech"] == newly_selected_voice_tech_name for vm in self.active_main_ui_voices_meta)
+            if not is_in_active_list:
+                # Encontrar la metadata completa de esta voz (del available_voices_map y desired_main_ui_voices_meta si es posible)
+                # Esto asume que self.desired_main_ui_voices_meta tiene una estructura con 'img' y 'friendly_short'
+                # o que podemos construirla.
+                new_voice_meta_for_main = None
+                # Primero buscar en las voces "deseadas" si tiene una entrada completa
+                for vm_desired in self.desired_main_ui_voices_meta:
+                    if vm_desired["tech"] == newly_selected_voice_tech_name:
+                        new_voice_meta_for_main = vm_desired
+                        break
+                if not new_voice_meta_for_main: # Si no, construir una básica
+                    new_voice_meta_for_main = {
+                        "tech": newly_selected_voice_tech_name,
+                        "friendly_short": self.selected_voice_friendly_name_full.split(" (")[0].split(" ")[-1], # Nombre corto
+                        "img": f"{newly_selected_voice_tech_name}.png" # Asumir nombre de imagen
+                    }
+
+                if self.active_main_ui_voices_meta:
+                    self.active_main_ui_voices_meta.pop(0) # Quitar el primero
+                    self.active_main_ui_voices_meta.insert(0, new_voice_meta_for_main) # Insertar el nuevo al inicio
+                else: # Si estaba vacía, simplemente añadirlo
+                    self.active_main_ui_voices_meta = [new_voice_meta_for_main]
+        
+        self._display_voice_avatars_in_grid(
+            self.voice_thumbnail_grid_main, 
+            self.active_main_ui_voices_meta[:VOICE_AVATAR_GRID_COLUMNS_MAIN * 2] # Mostrar hasta 2 filas
+        )
+        if self.selected_voice_technical_name: # Re-aplicar resaltado después de redibujar
+            self.highlight_selected_voice_avatar(self.selected_voice_technical_name)
 
 
 if __name__ == "__main__":
