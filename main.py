@@ -54,9 +54,14 @@ class App(customtkinter.CTk):
         # print(f"DEBUG_SELF (App __init__ start): type(self) is {type(self)}, id(self) is {id(self)}")
 
         self.title("AI Reddit Video Generator")
-        self.geometry("1400x900")
+        # Initial size, will be centered later
+        self.initial_width = 1400
+        self.initial_height = 900
+        self.geometry(f"{self.initial_width}x{self.initial_height}")
         self.configure(fg_color=COLOR_BACKGROUND_MAIN)
         
+        self._center_window(self, self.initial_width, self.initial_height) # Center the main window
+
         self.ASSETS_BASE_PATH = "assets/"
         self.VOICE_AVATAR_PATH = os.path.join(self.ASSETS_BASE_PATH, "avatars/")
         self.APP_ICON_PATH = os.path.join(self.ASSETS_BASE_PATH, "RedditVidGen_Logo.ico") # Cambiado a .ico
@@ -788,12 +793,29 @@ class App(customtkinter.CTk):
 
     # --- METHODS ---
 
+    def _center_window(self, window: customtkinter.CTk | customtkinter.CTkToplevel, width: int = None, height: int = None):
+        """Centers the given window (main app or popup) on the screen."""
+        window.update_idletasks() # Ensure dimensions are up-to-date
+        
+        win_width = width if width else window.winfo_width()
+        win_height = height if height else window.winfo_height()
+        
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        
+        x = (screen_width // 2) - (win_width // 2)
+        y = (screen_height // 2) - (win_height // 2) - 50 # Ajusta este valor para mover la ventana verticalmente
+        
+        window.geometry(f"{win_width}x{win_height}+{x}+{y}")
+
     def open_ai_story_generation_popup(self):
         if hasattr(self, 'ai_popup') and self.ai_popup.winfo_exists():
             self.ai_popup.focus(); self.ai_popup.grab_set(); return
 
         self.ai_popup = customtkinter.CTkToplevel(self)
-        self.ai_popup.title("Generate a story with AI"); self.ai_popup.geometry("500x400") # Adjusted height for slider
+        popup_width = 500
+        popup_height = 400 # Adjusted height for slider
+        self.ai_popup.title("Generate a story with AI")
         self.ai_popup.attributes("-topmost", True); self.ai_popup.resizable(False, False)
         self.ai_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.ai_popup.grab_set()
         # Set popup icon
@@ -804,6 +826,7 @@ class App(customtkinter.CTk):
                 print(f"Warning: App icon not found for AI story popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for AI story popup: {e}")
 
+        self._center_window(self.ai_popup, popup_width, popup_height)
         main_frame = customtkinter.CTkFrame(self.ai_popup, fg_color=COLOR_BACKGROUND_CARD, corner_radius=CORNER_RADIUS_FRAME)
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         customtkinter.CTkLabel(main_frame, text="Generate a story with AI", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=(0,20))
@@ -1132,11 +1155,14 @@ class App(customtkinter.CTk):
     def show_generating_video_popup(self):
         if hasattr(self, 'generating_popup') and self.generating_popup.winfo_exists(): self.generating_popup.focus(); self.generating_popup.grab_set(); return
         self.generating_popup = customtkinter.CTkToplevel(self)
-        self.generating_popup.title("Processing Video"); self.generating_popup.geometry("480x380")
+        popup_width = 480
+        popup_height = 380
+        self.generating_popup.title("Processing Video")
         self.generating_popup.attributes("-topmost", True); self.generating_popup.protocol("WM_DELETE_WINDOW", lambda: None)
         self.generating_popup.grab_set(); self.generating_popup.configure(fg_color=COLOR_BACKGROUND_MAIN)
         # Set popup icon
         try:
+            # self.generating_popup.geometry(f"{popup_width}x{popup_height}") # Set size before centering
             if hasattr(self, 'app_icon_photoimage') and self.app_icon_photoimage:
                 self.generating_popup.iconphoto(False, self.app_icon_photoimage)
             else:
@@ -1144,6 +1170,7 @@ class App(customtkinter.CTk):
         except Exception as e: print(f"Error setting icon for generating video popup: {e}")
         progress_bar = customtkinter.CTkProgressBar(self.generating_popup, mode="indeterminate", progress_color=COLOR_PRIMARY_ACTION)
         progress_bar.pack(pady=(25,15), padx=50, fill="x"); progress_bar.start()
+        self._center_window(self.generating_popup, popup_width, popup_height)
         customtkinter.CTkLabel(self.generating_popup, text="GENERATING VIDEO", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=10)
         customtkinter.CTkLabel(self.generating_popup, text="LOG:", font=("Arial", 12), anchor="w", text_color=COLOR_TEXT_SECONDARY).pack(fill="x", padx=25, pady=(10,2))
         self.generating_log_textbox = customtkinter.CTkTextbox(self.generating_popup, height=120, wrap="word", fg_color=COLOR_BACKGROUND_CARD, text_color=COLOR_TEXT_PRIMARY, corner_radius=CORNER_RADIUS_INPUT, border_color=COLOR_BACKGROUND_CARD)
@@ -1274,7 +1301,9 @@ class App(customtkinter.CTk):
         print("open_view_all_voices_popup called")
         if hasattr(self, 'all_voices_popup') and self.all_voices_popup.winfo_exists(): self.all_voices_popup.focus(); self.all_voices_popup.grab_set(); return
         self.all_voices_popup = customtkinter.CTkToplevel(self)
-        self.all_voices_popup.title("Choose a voice"); self.all_voices_popup.geometry("720x600")
+        popup_width = 720
+        popup_height = 600
+        self.all_voices_popup.title("Choose a voice")
         self.all_voices_popup.attributes("-topmost", True); self.all_voices_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_voices_popup.grab_set()
         # Set popup icon
         try:
@@ -1284,6 +1313,7 @@ class App(customtkinter.CTk):
                 print(f"Warning: App icon not found for all voices popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for all voices popup: {e}")
         customtkinter.CTkLabel(self.all_voices_popup, text="Choose a voice", font=("Arial", 18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=15)
+        self._center_window(self.all_voices_popup, popup_width, popup_height)
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_voices_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
         scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
         vr, vc = 0, 0
@@ -1364,8 +1394,10 @@ class App(customtkinter.CTk):
         print("open_view_all_videos_popup called")
         if not self.all_video_templates: self.status_label.configure(text="No video templates found."); return
         if hasattr(self, 'all_videos_main_popup') and self.all_videos_main_popup.winfo_exists(): self.all_videos_main_popup.focus(); self.all_videos_main_popup.grab_set(); return
-        self.all_videos_main_popup = customtkinter.CTkToplevel(self)
-        self.all_videos_main_popup.title("Choose a background video"); self.all_videos_main_popup.geometry("780x650")
+        self.all_videos_main_popup = customtkinter.CTkToplevel(self) # Parent is self (App instance)
+        popup_width = 780
+        popup_height = 650
+        self.all_videos_main_popup.title("Choose a background video")
         self.all_videos_main_popup.attributes("-topmost", True); self.all_videos_main_popup.configure(fg_color=COLOR_BACKGROUND_MAIN); self.all_videos_main_popup.grab_set()
         # Set popup icon
         try:
@@ -1375,6 +1407,7 @@ class App(customtkinter.CTk):
                 print(f"Warning: App icon not found for all videos popup at {self.APP_ICON_PATH}")
         except Exception as e: print(f"Error setting icon for all videos popup: {e}")
         customtkinter.CTkLabel(self.all_videos_main_popup, text="Choose a background video", font=("Arial",18, "bold"), text_color=COLOR_TEXT_PRIMARY).pack(pady=15)
+        self._center_window(self.all_videos_main_popup, popup_width, popup_height)
         scrollable_frame = customtkinter.CTkScrollableFrame(self.all_videos_main_popup, fg_color=COLOR_BACKGROUND_MAIN, scrollbar_button_color=COLOR_BACKGROUND_CARD, scrollbar_button_hover_color=COLOR_BUTTON_SECONDARY_HOVER)
         scrollable_frame.pack(expand=True, fill="both", padx=20, pady=(0,20))
         for i in range(VIDEO_THUMBNAIL_GRID_COLUMNS): scrollable_frame.grid_columnconfigure(i, weight=1)
