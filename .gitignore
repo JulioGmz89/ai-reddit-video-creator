@@ -1,1 +1,30 @@
+# Virtual environments
 venv/
+*/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Output files (optional, you might want to exclude these)
+# output/
+
+# PyInstaller files (if you attempt builds again)
+build/
+dist/
+*.spec
+
+# Specific temporary files from your app
+_subtitle_preview_image_temp.png
+_combined_preview_temp.png
+_subtitle_only_preview_temp.png
+temp-audio-*.m4a
+temp-subburn-audio-*.m4a
+narr_vid_temp_*/
+
+# Model caches (if stored locally in project & not desired in repo)
+# .cache/
+
+# Specific test files
+test_audio.wav
+test_subtitles_*.srt
+test_tts_output.wav
