@@ -257,7 +257,7 @@ The main window is divided into a control panel on the left for all configuratio
     *Users can input a Reddit URL or choose to generate a story with AI. The story text appears in the editable "Text to Speech" area.*
 
 2.  *Voice, Video & Subtitle Configuration Sections:*
-    ![Main Application - View 2](assets/docs/ui_figma_screenshots/Desktop3.png)
+    ![Main Application - View 2](assets/docs/ui_figma_screenshots/Dektop3.png)
     *Sections for voice selection, video background selection, and detailed subtitle styling are clearly laid out.* *The right pane includes a phone-frame preview that updates with subtitle style changes and selected video thumbnail.*
 
 3.  *Generating Video:*
@@ -268,6 +268,7 @@ The main window is divided into a control panel on the left for all configuratio
 The application utilizes pop-up dialogs for focused tasks like AI content generation and comprehensive selection options.
 
 1.  *AI Story Generation Pop-up:*
+   
     ![AI Story Generation Popup](assets/docs/ui_figma_screenshots/PopUpGenAi.png)
     *This dialog allows users to specify a subject, style, and word count (max tokens) for AI-generated stories.*
 
