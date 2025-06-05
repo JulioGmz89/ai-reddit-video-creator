@@ -5,10 +5,10 @@ venv/
 *.pyo
 *.pyd
 
-# Output files (optional, you might want to exclude these)
+# Output files
 # output/
 
-# PyInstaller files (if you attempt builds again)
+# PyInstaller files
 build/
 dist/
 *.spec
@@ -21,7 +21,7 @@ temp-audio-*.m4a
 temp-subburn-audio-*.m4a
 narr_vid_temp_*/
 
-# Model caches (if stored locally in project & not desired in repo)
+# Model caches 
 # .cache/
 
 # Specific test files
