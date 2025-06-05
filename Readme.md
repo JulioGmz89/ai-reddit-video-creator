@@ -270,13 +270,14 @@ The application utilizes pop-up dialogs for focused tasks like AI content genera
 1.  *AI Story Generation Pop-up:*
    
     ![AI Story Generation Popup](assets/docs/ui_figma_screenshots/PopUpGenAi.png)
+    
     *This dialog allows users to specify a subject, style, and word count (max tokens) for AI-generated stories.*
 
-2.  *"View All Voices" Pop-up:*
+3.  *"View All Voices" Pop-up:*
     ![View All Voices Popup](assets/docs/ui_figma_screenshots/PopUpVoices.png)
     *Provides a scrollable grid display of all available TTS voices with their respective avatars for easy selection.*
 
-3.  *"View All Videos" Pop-up:*
+4.  *"View All Videos" Pop-up:*
     ![View All Videos Popup](assets/docs/ui_figma_screenshots/PopUpVideos.png)
     *Displays thumbnails of all available background videos from the `video_templates` directory, allowing users to choose one for their project.*
 
