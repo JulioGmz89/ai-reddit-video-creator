@@ -242,8 +242,40 @@ Before you begin, ensure you have the following:
     * Subtitle accuracy depends on the Whisper model and audio quality.
 * **Application is slow:** AI tasks (story generation, TTS, transcription) can be intensive, especially on a CPU. Using a compatible NVIDIA GPU can significantly speed up these processes.
 
-## 📄 License
+## 🎨 User Interface (UI) Design
 
-[YOUR_LICENSE_HERE] (e.g., MIT License, Apache 2.0 License).
-*Choose a license that suits your project. If you're unsure, [choosealicense.com](https://choosealicense.com/) is a good resource.*
+The application features an intuitive graphical user interface designed to streamline the video creation process. The UI was initially conceptualized using Figma and implemented with CustomTkinter to provide a modern look and feel.
+
+Below are some key screenshots showcasing the application's interface:
+
+**Main Application Window:**
+
+The main window is divided into a control panel on the left for all configurations and a preview/generation panel on the right.
+
+1.  *Overall Layout & Input Section:*
+    ![Main Application - View 1](assets/docs/ui_screenshots/Desktop1.png)
+    *Users can input a Reddit URL or choose to generate a story with AI. The story text appears in the editable "Text to Speech" area.*
+
+2.  *Voice, Video & Subtitle Configuration Sections:*
+    ![Main Application - View 2](assets/docs/ui_screenshots/Desktop3.png)
+    *Sections for voice selection, video background selection, and detailed subtitle styling are clearly laid out.* *The right pane includes a phone-frame preview that updates with subtitle style changes and selected video thumbnail.*
+
+3.  *Generating Video:*
+    ![Main Application - View 2](assets/docs/ui_screenshots/Desktop2.png)
+
+**Key Pop-up Dialogs:**
+
+The application utilizes pop-up dialogs for focused tasks like AI content generation and comprehensive selection options.
+
+1.  *AI Story Generation Pop-up:*
+    ![AI Story Generation Popup](assets/docs/ui_screenshots/PopUpGenAi.png)
+    *This dialog allows users to specify a subject, style, and word count (max tokens) for AI-generated stories.*
+
+2.  *"View All Voices" Pop-up:*
+    ![View All Voices Popup](assets/docs/ui_screenshots/PopUpVoices.png)
+    *Provides a scrollable grid display of all available TTS voices with their respective avatars for easy selection.*
+
+3.  *"View All Videos" Pop-up:*
+    ![View All Videos Popup](assets/docs/ui_screenshots/PopUpVideos.png)
+    *Displays thumbnails of all available background videos from the `video_templates` directory, allowing users to choose one for their project.*
 
